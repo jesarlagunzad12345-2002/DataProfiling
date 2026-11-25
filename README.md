@@ -180,6 +180,8 @@ The profiling queue remains process-local and serial; it is bounded to prevent u
 
 Vercel routes requests through the Node.js function configured in [`vercel.json`](./vercel.json). Add the app's settings under **Project → Settings → Environment Variables**; Vercel does not read the ignored local `.env` file. At minimum configure `SESSION_SECRET`, `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USER`, and `DB_PASSWORD`, plus `NODE_ENV=production`. Use a database hostname reachable from Vercel, not `localhost`, and enable `DB_SSL=true` when required by the database provider. Select the appropriate deployment environments and redeploy after changing variables.
 
+If MySQL is unreachable, Vercel still serves the login page with a database-outage notice, but sign-in and data features remain unavailable until the database connection works. An `ECONNREFUSED` error means the configured host/port is refusing connections; verify that `DB_HOST` is the live database provider's endpoint, `DB_PORT` is correct, and remote access is enabled.
+
 Vercel functions do not provide persistent local storage. On Vercel the app uses `/tmp` to avoid writing into the read-only deployment bundle, but those files can disappear between function instances or deployments. File-based features are not production-ready there without migrating uploads, working copies, and exports to persistent object storage. For the complete application, use a host with a persistent private volume, or add an object-storage integration before accepting uploads.
 
 ## Database tables

@@ -77,6 +77,26 @@ function createApp(options = {}) {
     next();
   });
 
+  if (options.databaseUnavailable) {
+    app.use((req, res) => {
+      if (req.method === 'GET' && req.path === '/') {
+        return res.redirect('/login');
+      }
+      if (req.path === '/login' && (req.method === 'GET' || req.method === 'POST')) {
+        return res.status(503).render('login', {
+          title: 'Sign in',
+          errorMessage: 'Sign-in is temporarily unavailable because the database cannot be reached. Please try again later.',
+          loginValue: ''
+        });
+      }
+      return res.status(503).render('error', {
+        title: 'Service temporarily unavailable',
+        message: 'The database cannot be reached. Please try again later.',
+        statusCode: 503
+      });
+    });
+  }
+
   app.use(authRoutes);
   app.use(pageRoutes);
   app.use(uploadRoutes);

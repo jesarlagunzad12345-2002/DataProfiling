@@ -14,7 +14,23 @@ async function initializeApp() {
     fs.mkdir(storagePaths.exports, { recursive: true }),
     fs.mkdir(storagePaths.workingCopies, { recursive: true })
   ]);
-  await verifyDatabaseConnection();
+  try {
+    await verifyDatabaseConnection();
+  } catch (error) {
+    if (!process.env.VERCEL) throw error;
+    console.error('Database is unavailable; serving the sign-in page in degraded mode.');
+    const session = require('express-session');
+    const { createApp } = require('./app');
+    const app = createApp({
+      sessionStore: new session.MemoryStore(),
+      databaseUnavailable: true
+    });
+    app.locals.profilingSchemaReady = false;
+    app.locals.manipulationSchemaReady = false;
+    app.locals.reviewSchemaReady = false;
+    app.locals.exportSchemaReady = false;
+    return { app, exportService: null, exportSchemaReady: false };
+  }
   const profilingModel = require('./models/profilingModel');
   const manipulationModel = require('./models/manipulationModel');
   const reviewModel = require('./models/reviewModel');
