@@ -3,14 +3,10 @@ const fs = require('node:fs/promises');
 const path = require('node:path');
 const { verifyDatabaseConnection } = require('./config/database');
 
-async function startServer() {
+async function initializeApp() {
   const sessionSecret = process.env.SESSION_SECRET;
   if (!sessionSecret || sessionSecret.length < 32 || sessionSecret.startsWith('replace-with-')) {
-    throw new Error('Set SESSION_SECRET in .env to a random value of at least 32 characters.');
-  }
-  const port = Number(process.env.PORT || 3000);
-  if (!Number.isInteger(port) || port < 1 || port > 65535) {
-    throw new Error('PORT must be a valid TCP port.');
+    throw new Error('Set SESSION_SECRET to a random value of at least 32 characters.');
   }
 
   const uploadsDirectory = path.join(__dirname, 'uploads');
@@ -87,6 +83,28 @@ async function startServer() {
     }
     throw new Error('Unable to initialize MySQL session storage. Confirm the database and user_sessions table permissions.');
   }
+
+  return { app, exportService, exportSchemaReady };
+}
+
+let appInitialization;
+function getInitializedApp() {
+  if (!appInitialization) {
+    appInitialization = initializeApp().catch((error) => {
+      appInitialization = null;
+      throw error;
+    });
+  }
+  return appInitialization;
+}
+
+async function startServer() {
+  const port = Number(process.env.PORT || 3000);
+  if (!Number.isInteger(port) || port < 1 || port > 65535) {
+    throw new Error('PORT must be a valid TCP port.');
+  }
+
+  const { app, exportService, exportSchemaReady } = await getInitializedApp();
   const server = app.listen(port, () => {
     console.log(`Data Profiling Platform listening at http://localhost:${port}`);
   });
@@ -126,7 +144,16 @@ async function startServer() {
   process.once('SIGTERM', () => shutdown('SIGTERM'));
 }
 
-startServer().catch((error) => {
-  console.error('Application startup failed:', error.message);
-  process.exitCode = 1;
-});
+async function handleRequest(req, res) {
+  const { app } = await getInitializedApp();
+  return app(req, res);
+}
+
+module.exports = handleRequest;
+
+if (require.main === module) {
+  startServer().catch((error) => {
+    console.error('Application startup failed:', error.message);
+    process.exitCode = 1;
+  });
+}

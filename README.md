@@ -176,6 +176,12 @@ The profiling queue remains process-local and serial; it is bounded to prevent u
 5. Apply `database/schema.sql` with a database administrator and configure backups and log retention before accepting production data.
 6. Run `npm ci`, `npm test`, `npm run build`, and `npm audit` during deployment validation.
 
+### Vercel deployment
+
+Vercel routes requests through the Node.js function configured in [`vercel.json`](./vercel.json). Add the app's settings under **Project → Settings → Environment Variables**; Vercel does not read the ignored local `.env` file. At minimum configure `SESSION_SECRET`, `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USER`, and `DB_PASSWORD`, plus `NODE_ENV=production`. Use a database hostname reachable from Vercel, not `localhost`, and enable `DB_SSL=true` when required by the database provider. Select the appropriate deployment environments and redeploy after changing variables.
+
+Vercel functions do not provide persistent local storage. This app stores uploaded workbooks, working copies, and exports on disk, so those file-based features are not production-ready on Vercel without migrating them to persistent object storage. For the complete application, use a host with a persistent private volume, or add an object-storage integration before accepting uploads.
+
 ## Database tables
 
 | Table | Contents |
