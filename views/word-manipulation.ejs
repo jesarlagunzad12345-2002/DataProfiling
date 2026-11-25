@@ -1,0 +1,158 @@
+<%- include('partials/app-start') %>
+<section class="page-heading">
+  <div><p class="eyebrow">WORKSHEET CLEANING</p><h1>Word Manipulation</h1><p class="muted">Select columns or individual cells, preview the exact edits, and submit them for manual approval.</p></div>
+  <% if (selectedSource) { %><a class="button button-secondary" href="/word-manipulation/history/<%= selectedSource.upload.id %>"><i data-lucide="history"></i> View history</a><% } %>
+</section>
+<% if (errorMessage) { %><div class="alert alert-error" role="alert"><i data-lucide="circle-alert"></i><%= errorMessage %></div><% } %>
+
+<section class="panel word-source-panel">
+  <div class="panel-heading"><div><h2>Choose a worksheet</h2><p>Only workbooks uploaded to your account are available.</p></div></div>
+  <% if (sources.length) { %>
+    <form action="/word-manipulation" method="get" class="profiling-source-form">
+      <label class="form-field"><span>Workbook and worksheet</span>
+        <select name="source" required>
+          <option value="">Select a worksheet</option>
+          <% sources.forEach((source) => { const key = `${source.upload_id}:${source.worksheet_index}`; %>
+            <option value="<%= key %>" <%= selectedSource && selectedSource.key === key ? 'selected' : '' %>><%= source.original_name %> — <%= source.worksheet_name %></option>
+          <% }) %>
+        </select>
+      </label>
+      <button class="button button-secondary" type="submit"><i data-lucide="table-properties"></i> Load worksheet</button>
+    </form>
+  <% } else { %>
+    <div class="empty-state"><div class="empty-icon"><i data-lucide="files"></i></div><h3>No worksheets available</h3><p>Upload an Excel workbook, then return here to select its worksheet.</p><a class="button button-primary button-small" href="/uploads">Go to Excel Upload</a></div>
+  <% } %>
+</section>
+
+<% if (selectedSource) { %>
+  <section class="word-file-summary">
+    <div><span class="summary-label">WORKBOOK</span><b><%= selectedSource.upload.original_name %></b></div>
+    <div><span class="summary-label">WORKSHEET</span><b><%= selectedSource.worksheet.name %></b></div>
+    <div><span class="summary-label">ROWS</span><b><%= Number(selectedSource.worksheet.rowCount).toLocaleString() %></b></div>
+    <div><span class="summary-label">COLUMNS</span><b><%= Number(selectedSource.worksheet.columnCount).toLocaleString() %></b></div>
+  </section>
+
+  <form action="/word-manipulation/preview" method="post" class="word-tool-form" data-word-form
+        data-upload-id="<%= selectedSource.upload.id %>"
+        data-worksheet-index="<%= selectedSource.worksheet.worksheet_index %>">
+    <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+    <input type="hidden" name="source" value="<%= selectedSource.key %>">
+    <input type="hidden" name="expectedRevision" value="<%= selectedSource.revision %>" data-word-revision>
+    <input type="hidden" name="selection" value="" data-word-selection>
+
+    <section class="panel word-selection-panel">
+      <div class="panel-heading"><div><h2>1. Select cells</h2><p>Whole columns apply to every populated row. Use the grid to select specific cells across pages.</p></div><span class="upload-badge"><i data-lucide="lock-keyhole"></i> Original stays unchanged</span></div>
+      <div class="word-selection-controls">
+        <label class="form-field word-column-field"><span>Whole columns</span>
+          <select id="word-column-select" multiple size="5" aria-describedby="word-column-help">
+            <% selectedSource.columnChoices.forEach((column) => { %><option value="<%= column.index %>"><%= column.label %></option><% }) %>
+          </select>
+          <small id="word-column-help" class="small-note">Use Ctrl or Command to select multiple columns. Grid header checkboxes also select whole columns.</small>
+        </label>
+        <div class="word-selection-options">
+          <label class="check-option"><input type="checkbox" data-word-include-header><span>Include the first row when selecting whole columns</span></label>
+          <p class="small-note" data-word-selection-summary>0 columns and 0 individual cells selected.</p>
+        </div>
+      </div>
+      <div class="word-grid-wrap">
+        <div class="word-grid-status small-note" data-word-grid-status role="status">Loading worksheet preview...</div>
+        <div class="table-wrap word-grid-table-wrap" data-word-grid></div>
+        <div class="pagination word-grid-pagination" data-word-grid-pager hidden>
+          <button type="button" class="button button-secondary button-small" data-row-previous>Previous rows</button>
+          <span data-row-page></span>
+          <button type="button" class="button button-secondary button-small" data-row-next>Next rows</button>
+          <span class="word-page-divider"></span>
+          <button type="button" class="button button-secondary button-small" data-column-previous>Previous columns</button>
+          <span data-column-page></span>
+          <button type="button" class="button button-secondary button-small" data-column-next>Next columns</button>
+        </div>
+      </div>
+    </section>
+
+    <section class="panel word-operation-panel">
+      <div class="panel-heading"><div><h2>2. Choose an operation</h2><p>Only selected text cells are changed. Formulas and dates are left alone.</p></div></div>
+      <div class="word-operation-controls">
+        <label class="form-field"><span>Operation</span>
+          <select name="operation" required data-word-operation>
+            <% operationLabels.forEach((item) => { %><option value="<%= item.value %>" <%= submitted && submitted.operation === item.value ? 'selected' : '' %>><%= item.label %></option><% }) %>
+          </select>
+        </label>
+        <div class="word-operation-fields" data-add-fields hidden>
+          <label class="form-field"><span>Text to add</span><input type="text" name="addedText" maxlength="500" value="<%= submitted && (submitted.addedText || submitted.text) ? (submitted.addedText || submitted.text) : '' %>" placeholder="For example: Senior Analyst"></label>
+          <label class="form-field"><span>Word separator</span><select name="separator">
+            <option value="space" <%= submitted && submitted.separator === 'space' ? 'selected' : '' %>>Space</option>
+            <option value="comma" <%= submitted && submitted.separator === 'comma' ? 'selected' : '' %>>Comma</option>
+            <option value="hyphen" <%= submitted && submitted.separator === 'hyphen' ? 'selected' : '' %>>Hyphen</option>
+          </select></label>
+        </div>
+        <div class="word-operation-fields" data-find-fields hidden>
+          <label class="form-field"><span>Find</span><input type="text" name="findText" maxlength="500" value="<%= submitted && submitted.findText ? submitted.findText : '' %>" placeholder="Text to find"></label>
+          <label class="form-field"><span>Replace with</span><input type="text" name="replaceText" maxlength="500" value="<%= submitted && submitted.replaceText ? submitted.replaceText : '' %>" placeholder="Replacement text"></label>
+          <label class="check-option word-case-option"><input type="checkbox" name="matchCase" <%= !submitted || submitted.matchCase === true || submitted.matchCase === 'on' ? 'checked' : '' %>><span>Match case</span></label>
+        </div>
+      </div>
+      <div class="upload-submit word-submit">
+        <span class="small-note"><i data-lucide="shield-check"></i> Preview first. Submitted changes stay out of the working copy until approved.</span>
+        <div><button type="reset" class="button button-secondary"><i data-lucide="rotate-ccw"></i> Reset</button><button type="submit" class="button button-primary"><i data-lucide="eye"></i> Preview changes</button></div>
+      </div>
+    </section>
+  </form>
+
+  <% if (preview) { %>
+    <section class="panel word-preview-panel" aria-live="polite">
+      <div class="panel-heading"><div><h2>Preview changes</h2><p><%= preview.operation %> — review the values before confirming.</p></div><span class="count-pill"><%= Number(preview.affectedCount).toLocaleString() %> affected cells</span></div>
+      <% if (preview.truncated) { %><p class="word-preview-note">Showing the first <%= preview.rows.length %> changed cells of <%= Number(preview.affectedCount).toLocaleString() %>. The confirmed operation will submit all selected cells for review.</p><% } %>
+      <% if (preview.affectedCount) { %>
+        <div class="table-wrap"><table class="word-preview-table"><thead><tr><th>Cell</th><th>Original value</th><th>Modified value</th><th>Operation</th><th>Status</th></tr></thead><tbody>
+          <% preview.rows.forEach((change) => { %>
+            <tr><td><%= change.cellReference %></td><td class="word-value-cell"><%= change.originalDisplay %></td><td class="word-value-cell"><%= change.modifiedDisplay %></td><td><%= change.operation %></td><td><span class="word-ready-status"><%= change.status %></span></td></tr>
+          <% }) %>
+        </tbody></table></div>
+      <% } else { %>
+        <div class="empty-state empty-history"><div class="empty-icon"><i data-lucide="circle-check"></i></div><h3>No cells would change</h3><p>You can adjust the selection or choose a different operation.</p></div>
+      <% } %>
+      <form action="/word-manipulation/apply" method="post" class="word-confirm-form">
+        <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+        <input type="hidden" name="source" value="<%= preview.source %>">
+        <input type="hidden" name="expectedRevision" value="<%= preview.revision %>">
+        <input type="hidden" name="operation" value="<%= submitted.operation %>">
+        <input type="hidden" name="addedText" value="<%= submitted.text || '' %>">
+        <input type="hidden" name="separator" value="<%= submitted.separator || '' %>">
+        <input type="hidden" name="findText" value="<%= submitted.findText || '' %>">
+        <input type="hidden" name="replaceText" value="<%= submitted.replaceText || '' %>">
+        <% if (submitted.matchCase) { %><input type="hidden" name="matchCase" value="on"><% } %>
+        <input type="hidden" name="selection" value="<%= JSON.stringify(preview.selection) %>">
+        <a class="button button-secondary" href="/word-manipulation?source=<%= encodeURIComponent(selectedSource.key) %>">Cancel and reset</a>
+        <button type="submit" class="button button-primary"><i data-lucide="check"></i> Submit for review</button>
+      </form>
+    </section>
+  <% } %>
+
+  <section class="panel word-history-panel">
+    <div class="panel-heading"><div><h2>Recent operations</h2><p>Submitted operations are pending until their cell changes are approved in Review Changes.</p></div><a class="text-link" href="/word-manipulation/history/<%= selectedSource.upload.id %>">Full history <i data-lucide="arrow-up-right"></i></a></div>
+    <% if (selectedSource.history.length) { %>
+      <div class="word-history-list">
+        <% selectedSource.history.forEach((item) => { %>
+          <details class="word-history-item">
+            <summary><span><b><%= item.displayOperation %></b><small>By <%= item.username %> · <%= new Date(item.created_at).toLocaleString() %></small></span><span class="word-history-meta"><b><%= Number(item.change_count).toLocaleString() %></b> cells · <span class="word-history-status status-<%= item.status %>"><%= item.status %></span></span></summary>
+            <div class="table-wrap"><table><thead><tr><th>Cell</th><th>Original value</th><th>Modified value</th></tr></thead><tbody>
+              <% item.cellChanges.forEach((change) => { %><tr><td><%= change.cell_reference %></td><td class="word-value-cell"><%= change.original_value %></td><td class="word-value-cell"><%= change.modified_value %></td></tr><% }) %>
+            </tbody></table></div>
+            <% if (Number(item.change_count) > item.cellChanges.length) { %><a class="table-link word-history-detail-link" href="/word-manipulation/history/<%= selectedSource.upload.id %>/<%= item.id %>">View all <%= Number(item.change_count).toLocaleString() %> cell changes</a><% } %>
+          </details>
+        <% }) %>
+      </div>
+      <% if (selectedSource.canUndo) { %>
+        <form action="/word-manipulation/history/<%= selectedSource.upload.id %>/undo" method="post" class="word-undo-form">
+          <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+          <input type="hidden" name="expectedRevision" value="<%= selectedSource.revision %>">
+          <span class="small-note">Undo restores the original values from the latest applied operation.</span>
+          <button class="button button-secondary" type="submit"><i data-lucide="undo-2"></i> Undo latest operation</button>
+        </form>
+      <% } %>
+    <% } else { %>
+      <div class="empty-state empty-history"><div class="empty-icon"><i data-lucide="history"></i></div><h3>No manipulation history</h3><p>Submitted changes and their before-and-after values will appear here.</p></div>
+    <% } %>
+  </section>
+<% } %>
+<%- include('partials/app-end') %>

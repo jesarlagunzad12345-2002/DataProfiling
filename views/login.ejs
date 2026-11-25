@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light">
+  <title><%= title %> | ClearSheet</title>
+  <link rel="stylesheet" href="/css/app.css">
+  <script src="/js/app.js" defer></script>
+  <script src="/js/auth.js" defer></script>
+</head>
+<body class="login-page">
+  <main class="login-card">
+    <section class="login-panel" aria-labelledby="login-title">
+      <a class="brand brand-login" href="/login" aria-label="ClearSheet home">
+        <span class="brand-mark">C</span><span>ClearSheet</span>
+      </a>
+      <div class="login-form-wrap">
+        <p class="eyebrow">YOUR DATA WORKSPACE</p>
+        <h1 id="login-title">Welcome back</h1>
+        <p class="muted">Sign in to continue to your secure workspace.</p>
+        <% if (errorMessage) { %>
+          <div class="alert alert-error" role="alert"><%= errorMessage %></div>
+        <% } %>
+        <form action="/login" method="post" class="form-stack" novalidate>
+          <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+          <label for="login">Email or username</label>
+          <input id="login" name="login" type="text" autocomplete="username" maxlength="254"
+            placeholder="you@company.com" value="<%= loginValue %>" required>
+          <label for="password">Password</label>
+          <div class="password-field">
+            <input id="password" name="password" type="password" autocomplete="current-password"
+              placeholder="Enter your password" required>
+            <button type="button" class="password-toggle" data-password-toggle aria-label="Show password" aria-pressed="false">
+              <i data-lucide="eye" aria-hidden="true"></i>
+            </button>
+          </div>
+          <div class="login-options">
+            <label class="checkbox-label"><input type="checkbox" name="remember"><span>Remember me</span></label>
+            <a href="/forgot-password">Forgot password?</a>
+          </div>
+          <button class="button button-primary button-wide" type="submit">Sign in <span aria-hidden="true">→</span></button>
+        </form>
+        <p class="login-help">Need access? Contact your workspace administrator.</p>
+      </div>
+      <footer class="login-footer">© <%= new Date().getFullYear() %> ClearSheet. Your original files stay yours.</footer>
+    </section>
+    <aside class="login-promo" aria-label="ClearSheet workspace introduction">
+      <div class="promo-top"><span class="promo-dot">✦</span><span>ClearSheet Workspace</span></div>
+      <div class="promo-copy">
+        <p class="eyebrow eyebrow-light">A CLEARER VIEW OF YOUR DATA</p>
+        <h2>Make every spreadsheet a little more useful.</h2>
+        <p>Bring your Excel workbooks into one secure place. Start with a clear preview, then build your workflow as your needs grow.</p>
+      </div>
+      <div class="preview-art" aria-hidden="true">
+        <div class="art-window">
+          <div class="art-window-bar"><span class="art-logo"></span><b>Workspace overview</b><span class="art-avatar">JD</span></div>
+          <div class="art-content">
+            <div class="art-greeting">Good morning <span>✦</span></div>
+            <div class="art-stat-row"><div><small>Workbooks</small><strong>12</strong></div><div><small>Worksheets</small><strong>36</strong></div><div><small>Rows ready</small><strong>8.4k</strong></div></div>
+            <div class="art-chart"><div class="art-chart-head"><b>Recent activity</b><small>Last 7 days</small></div><div class="chart-bars"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div></div>
+            <div class="art-table"><span>Workbook</span><span>Worksheets</span><span>Uploaded</span><b>customer-list.xlsx</b><span>4</span><span>Just now</span><b>quarterly-report.xlsx</b><span>3</span><span>Yesterday</span></div>
+          </div>
+        </div>
+      </div>
+      <p class="promo-caption">A dependable foundation for cleaner data.</p>
+    </aside>
+  </main>
+</body>
+</html>

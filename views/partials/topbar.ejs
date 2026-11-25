@@ -1,0 +1,9 @@
+<header class="topbar">
+  <button class="icon-button menu-toggle" type="button" data-menu-toggle aria-label="Open navigation"><i data-lucide="menu"></i></button>
+  <div class="breadcrumb"><span>Workspace</span><i data-lucide="chevron-right"></i><b><%= title %></b></div>
+  <div class="topbar-actions">
+    <div class="icon-button notification-button" role="img" aria-label="No new notifications" title="No new notifications"><i data-lucide="bell"></i><span class="notification-dot"></span></div>
+    <span class="topbar-divider"></span>
+    <div class="topbar-profile"><div class="avatar avatar-small"><%= (currentUser.username || 'U').slice(0, 1).toUpperCase() %></div><span><%= currentUser.username %></span></div>
+  </div>
+</header>

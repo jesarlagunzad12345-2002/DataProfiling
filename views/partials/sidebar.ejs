@@ -1,0 +1,25 @@
+<aside class="sidebar" id="app-sidebar">
+  <a class="brand sidebar-brand" href="/dashboard"><span class="brand-mark">C</span><span>ClearSheet</span></a>
+  <div class="workspace-label">WORKSPACE</div>
+  <nav class="side-nav" aria-label="Main navigation">
+    <a class="nav-link <%= activePage === 'dashboard' ? 'active' : '' %>" href="/dashboard"><i data-lucide="layout-dashboard"></i><span>Dashboard</span></a>
+    <a class="nav-link <%= activePage === 'uploads' ? 'active' : '' %>" href="/uploads"><i data-lucide="file-spreadsheet"></i><span>Excel Upload</span></a>
+    <a class="nav-link <%= activePage === 'profiling' ? 'active' : '' %>" href="/profiling"><i data-lucide="scan-search"></i><span>Data Profiling</span></a>
+    <a class="nav-link <%= activePage === 'word-manipulation' ? 'active' : '' %>" href="/word-manipulation"><i data-lucide="spell-check-2"></i><span>Word Manipulation</span></a>
+    <a class="nav-link <%= activePage === 'review' ? 'active' : '' %>" href="/review"><i data-lucide="history"></i><span>Review Changes</span></a>
+    <a class="nav-link <%= activePage === 'exports' ? 'active' : '' %>" href="/exports"><i data-lucide="download"></i><span>Excel Export</span></a>
+    <a class="nav-link <%= activePage === 'reports' ? 'active' : '' %>" href="/reports"><i data-lucide="chart-no-axes-column-increasing"></i><span>Reports</span></a>
+    <div class="nav-link nav-disabled" aria-disabled="true" title="Available in a later phase"><i data-lucide="settings-2"></i><span>Settings</span><small>Later</small></div>
+  </nav>
+  <div class="sidebar-bottom">
+    <div class="privacy-card"><span class="privacy-icon"><i data-lucide="shield-check"></i></span><b>Your files stay private</b><p>Only you can access your uploaded workbooks.</p></div>
+    <div class="sidebar-user">
+      <div class="avatar"><%= (currentUser.username || 'U').slice(0, 1).toUpperCase() %></div>
+      <div class="user-meta"><b><%= currentUser.username %></b><small><%= currentUser.email %></small></div>
+      <form action="/logout" method="post" aria-label="Sign out">
+        <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+        <button class="icon-button logout-button" type="submit" title="Sign out" aria-label="Sign out"><i data-lucide="log-out"></i></button>
+      </form>
+    </div>
+  </div>
+</aside>

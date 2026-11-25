@@ -1,0 +1,64 @@
+<%- include('partials/app-start') %>
+<section class="page-heading dashboard-heading">
+  <div><p class="eyebrow">WORKSPACE OVERVIEW</p><h1>Your dashboard</h1><p class="muted">A live view of your uploaded workbooks and completed data profiling.</p></div>
+  <a class="button button-primary" href="/uploads"><i data-lucide="plus"></i> Upload workbook</a>
+</section>
+<section class="stat-grid dashboard-kpi-grid" aria-label="Workspace key performance indicators">
+  <article class="stat-card"><div class="stat-icon stat-blue"><i data-lucide="files"></i></div><p>Total Excel files uploaded</p><strong><%= Number(summary.upload_count).toLocaleString() %></strong><span>Your private library</span></article>
+  <article class="stat-card"><div class="stat-icon stat-violet"><i data-lucide="rows-3"></i></div><p>Total records processed</p><strong><%= Number(summary.processed_records).toLocaleString() %></strong><span>Latest completed profiles</span></article>
+  <article class="stat-card"><div class="stat-icon stat-teal"><i data-lucide="check-check"></i></div><p>Overall completeness</p><strong><%= summary.overall_completeness === null ? '—' : `${Number(summary.overall_completeness).toFixed(1)}%` %></strong><span><%= profilingReady ? 'Weighted across profiled cells' : 'Profiling data unavailable' %></span></article>
+  <article class="stat-card"><div class="stat-icon stat-amber"><i data-lucide="circle-alert"></i></div><p>Total missing values</p><strong><%= Number(summary.missing_values).toLocaleString() %></strong><span>Across latest completed profiles</span></article>
+  <article class="stat-card"><div class="stat-icon stat-violet"><i data-lucide="copy-check"></i></div><p>Total duplicate records</p><strong><%= Number(summary.duplicate_record_count).toLocaleString() %></strong><span>Records matching duplicate rules</span></article>
+  <article class="stat-card"><div class="stat-icon stat-amber"><i data-lucide="phone-off"></i></div><p>Invalid phone numbers</p><strong><%= Number(summary.invalid_phone_count).toLocaleString() %></strong><span>Latest completed profiles</span></article>
+  <article class="stat-card"><div class="stat-icon stat-teal"><i data-lucide="circle-check"></i></div><p>Total approved changes</p><strong><%= Number(summary.approved_changes).toLocaleString() %></strong><span>Applied after manual review</span></article>
+  <article class="stat-card"><div class="stat-icon stat-blue"><i data-lucide="spell-check-2"></i></div><p>Word manipulation operations</p><strong><%= Number(summary.manipulation_operations).toLocaleString() %></strong><span>Submitted operations</span></article>
+</section>
+
+<section class="dashboard-chart-grid" data-dashboard-charts="<%= JSON.stringify(charts) %>">
+  <article class="panel dashboard-chart-card">
+    <div class="panel-heading"><div><h2>Data completeness</h2><p>Latest completed profile by workbook</p></div><span class="chart-caption">Percent</span></div>
+    <div class="dashboard-chart-body"><p class="chart-loading" data-chart-loading>Loading chart…</p><canvas data-chart="completeness" aria-label="Data completeness by workbook"></canvas></div>
+  </article>
+  <article class="panel dashboard-chart-card">
+    <div class="panel-heading"><div><h2>Complete vs incomplete records</h2><p>Latest completed profile totals</p></div></div>
+    <div class="dashboard-chart-body dashboard-chart-doughnut"><p class="chart-loading" data-chart-loading>Loading chart…</p><canvas data-chart="records" aria-label="Complete compared with incomplete records"></canvas></div>
+  </article>
+  <article class="panel dashboard-chart-card">
+    <div class="panel-heading"><div><h2>Duplicate records</h2><p>Records flagged by the latest profile</p></div></div>
+    <div class="dashboard-chart-body"><p class="chart-loading" data-chart-loading>Loading chart…</p><canvas data-chart="duplicates" aria-label="Duplicate records by workbook"></canvas></div>
+  </article>
+  <article class="panel dashboard-chart-card">
+    <div class="panel-heading"><div><h2>Data profiling results</h2><p>Quality findings across latest profiles</p></div></div>
+    <div class="dashboard-chart-body"><p class="chart-loading" data-chart-loading>Loading chart…</p><canvas data-chart="profiling" aria-label="Data profiling findings by category"></canvas></div>
+  </article>
+  <article class="panel dashboard-chart-card">
+    <div class="panel-heading"><div><h2>Upload activity</h2><p>Uploads in the last 14 days</p></div></div>
+    <div class="dashboard-chart-body"><p class="chart-loading" data-chart-loading>Loading chart…</p><canvas data-chart="uploads" aria-label="Excel uploads by day"></canvas></div>
+  </article>
+  <article class="panel dashboard-chart-card">
+    <div class="panel-heading"><div><h2>Word Manipulation activity</h2><p>Operations recorded in the last 14 days</p></div></div>
+    <div class="dashboard-chart-body"><p class="chart-loading" data-chart-loading>Loading chart…</p><canvas data-chart="manipulation" aria-label="Word Manipulation operations by day"></canvas></div>
+  </article>
+</section>
+
+<section class="panel dashboard-history-panel">
+  <div class="panel-heading"><div><h2>Upload history</h2><p>Processing status and latest available profile summary for your workbooks.</p></div><a class="text-link" href="/uploads">View all uploads <i data-lucide="arrow-up-right"></i></a></div>
+  <% if (recentUploads.length) { %>
+    <div class="table-wrap"><table class="dashboard-history-table"><thead><tr><th>Filename</th><th>Upload date</th><th>Records</th><th>Status</th><th>Completeness</th><th>Uploaded by</th><th>Actions</th></tr></thead><tbody>
+      <% recentUploads.forEach((upload) => { %>
+        <tr>
+          <td><b><%= upload.original_name %></b></td>
+          <td><%= new Date(upload.uploaded_at).toLocaleString() %></td>
+          <td><%= Number(upload.total_records).toLocaleString() %></td>
+          <td><span class="processing-status status-<%= upload.processing_status %>"><%= upload.processing_status.replace('_', ' ') %></span></td>
+          <td><%= upload.overall_completeness === null ? '—' : `${Number(upload.overall_completeness).toFixed(1)}%` %></td>
+          <td><%= upload.uploaded_by %></td>
+          <td class="dashboard-history-actions"><a class="table-link" href="/uploads/<%= upload.id %>/worksheets/0">Preview</a><a class="table-link" href="/profiling?source=<%= upload.id %>:0">Profile</a></td>
+        </tr>
+      <% }) %>
+    </tbody></table></div>
+  <% } else { %>
+    <div class="empty-state"><div class="empty-icon"><i data-lucide="file-up"></i></div><h3>Your workspace is ready</h3><p>Upload an Excel workbook to see its processing status and reporting activity here.</p><a class="button button-secondary" href="/uploads">Upload your first workbook</a></div>
+  <% } %>
+</section>
+<%- include('partials/app-end') %>

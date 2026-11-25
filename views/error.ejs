@@ -1,0 +1,13 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title><%= title %> | ClearSheet</title><link rel="stylesheet" href="/css/app.css"></head>
+<body class="error-page">
+  <main class="error-card">
+    <a class="brand" href="/"><span class="brand-mark">C</span><span>ClearSheet</span></a>
+    <div class="error-code"><%= statusCode %></div>
+    <h1><%= title %></h1>
+    <p class="muted"><%= message %></p>
+    <a href="<%= currentUser ? '/dashboard' : '/login' %>" class="button button-primary">Return to workspace</a>
+  </main>
+</body>
+</html>

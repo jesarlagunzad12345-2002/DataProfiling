@@ -1,0 +1,81 @@
+<%- include('partials/app-start') %>
+<div class="back-row"><a class="text-link" href="/profiling"><i data-lucide="arrow-left"></i> Back to Data Profiling</a></div>
+<section class="page-heading profiling-result-heading">
+  <div><p class="eyebrow">SAVED ANALYSIS</p><h1>Profiling Results</h1><p class="muted"><%= run.original_name %> · <%= run.worksheet_name %> · Started <%= new Date(run.created_at).toLocaleString() %></p></div>
+  <div class="review-result-actions"><span class="profile-status status-<%= run.status %>"><%= run.status %></span><% if (run.status === 'completed') { %><a class="button button-primary button-small" href="/review?upload=<%= run.upload_id %>">Review suggestions</a><% } %></div>
+</section>
+
+<% if (run.status === 'queued' || run.status === 'processing') { %>
+  <section class="panel profile-progress-panel"><div class="empty-state"><div class="empty-icon"><i data-lucide="loader-circle"></i></div><h3><%= run.status === 'queued' ? 'Profiling is queued' : 'Profiling your worksheet' %></h3><p><%= Number(run.processed_records).toLocaleString() %> records processed so far. This page refreshes automatically while the analysis runs.</p></div></section>
+<% } else if (run.status === 'failed') { %>
+  <div class="alert alert-error" role="alert"><i data-lucide="circle-alert"></i><%= run.error_message || 'Profiling could not be completed. Try again after checking the workbook.' %></div>
+<% } else { %>
+  <section class="stat-grid profiling-stat-grid">
+    <article class="stat-card"><span class="stat-icon stat-blue"><i data-lucide="rows-3"></i></span><p>Total records</p><strong><%= Number(run.total_records).toLocaleString() %></strong><span>Non-empty worksheet rows</span></article>
+    <article class="stat-card"><span class="stat-icon stat-teal"><i data-lucide="circle-check"></i></span><p>Complete records</p><strong><%= Number(run.complete_records).toLocaleString() %></strong><span><%= Number(run.overall_completeness).toFixed(2) %>% overall completeness</span></article>
+    <article class="stat-card"><span class="stat-icon stat-amber"><i data-lucide="circle-alert"></i></span><p>Missing values</p><strong><%= Number(run.missing_values).toLocaleString() %></strong><span><%= Number(run.incomplete_records).toLocaleString() %> incomplete records</span></article>
+    <article class="stat-card"><span class="stat-icon stat-violet"><i data-lucide="copy-check"></i></span><p>Duplicate records</p><strong><%= Number(run.duplicate_record_count).toLocaleString() %></strong><span>Exact, phone, or email matches</span></article>
+    <article class="stat-card"><span class="stat-icon stat-amber"><i data-lucide="phone"></i></span><p>Invalid phone numbers</p><strong><%= Number(run.invalid_phone_count).toLocaleString() %></strong><span><%= Number(run.suspicious_phone_count).toLocaleString() %> suspicious values</span></article>
+    <article class="stat-card"><span class="stat-icon stat-violet"><i data-lucide="map-pin"></i></span><p>Address issues</p><strong><%= Number(run.address_issue_count).toLocaleString() %></strong><span>Ambiguous or incomplete addresses</span></article>
+    <article class="stat-card"><span class="stat-icon stat-blue"><i data-lucide="globe-2"></i></span><p>Country inconsistencies</p><strong><%= Number(run.country_inconsistency_count).toLocaleString() %></strong><span>Local ISO/name standardization</span></article>
+    <article class="stat-card"><span class="stat-icon stat-teal"><i data-lucide="columns-3"></i></span><p>Profiled columns</p><strong><%= Number(run.column_count).toLocaleString() %></strong><span>Column-level completeness below</span></article>
+  </section>
+
+  <section class="panel profiling-columns-panel">
+    <div class="panel-heading"><div><h2>Column completeness</h2><p>Blank and common missing-value markers are counted; original values are preserved.</p></div><span class="count-pill"><%= Number(columnTotal).toLocaleString() %> columns</span></div>
+    <% if (columns.length) { %>
+      <div class="table-wrap"><table><thead><tr><th>Column</th><th>Complete values</th><th>Missing values</th><th>Completeness</th></tr></thead><tbody>
+        <% columns.forEach((column) => { %>
+          <tr><td><b><%= column.column_name %></b></td><td><%= Number(column.value_count).toLocaleString() %></td><td><%= Number(column.missing_count).toLocaleString() %></td><td><div class="completeness-cell"><progress class="completeness-track" value="<%= Math.max(0, Math.min(100, Number(column.completeness_percent))) %>" max="100" aria-label="<%= Number(column.completeness_percent).toFixed(2) %>% complete"></progress><b><%= Number(column.completeness_percent).toFixed(2) %>%</b></div></td></tr>
+        <% }) %>
+      </tbody></table></div>
+      <% if (columnPageCount > 1) { %><nav class="pagination" aria-label="Column pages"><span>Page <%= columnPage %> of <%= columnPageCount %></span><div><% if (columnPage > 1) { %><a class="button button-secondary button-small" href="/profiling/<%= run.id %>?columnPage=<%= columnPage - 1 %>&amp;issue=<%= issue %>">Previous</a><% } %><% if (columnPage < columnPageCount) { %><a class="button button-secondary button-small" href="/profiling/<%= run.id %>?columnPage=<%= columnPage + 1 %>&amp;issue=<%= issue %>">Next</a><% } %></div></nav><% } %>
+    <% } else { %><div class="empty-state"><h3>No column data</h3></div><% } %>
+  </section>
+
+  <section class="panel profiling-records-panel">
+    <div class="panel-heading"><div><h2>Profiled records</h2><p>Missing cells are highlighted. Values follow the column page above; suggestions never replace originals.</p></div><span class="count-pill"><%= Number(recordTotal).toLocaleString() %> matching records</span></div>
+    <form action="/profiling/<%= run.id %>" method="get" class="record-filter">
+      <input type="hidden" name="columnPage" value="<%= columnPage %>">
+      <label class="form-field"><span>Show records</span><select name="issue">
+        <option value="all" <%= issue === 'all' ? 'selected' : '' %>>All records</option>
+        <option value="incomplete" <%= issue === 'incomplete' ? 'selected' : '' %>>Incomplete</option>
+        <option value="phone" <%= issue === 'phone' ? 'selected' : '' %>>Phone issues</option>
+        <option value="duplicates" <%= issue === 'duplicates' ? 'selected' : '' %>>Duplicates</option>
+        <option value="address" <%= issue === 'address' ? 'selected' : '' %>>Address issues</option>
+        <option value="country" <%= issue === 'country' ? 'selected' : '' %>>Country inconsistencies</option>
+      </select></label><button class="button button-secondary button-small" type="submit">Apply filter</button>
+    </form>
+    <% if (records.length) { %>
+      <div class="table-wrap"><table class="profile-record-table"><thead><tr><th>Excel row</th><th>Original values</th><th>Issues</th><th>Duplicate matches</th><th>Suggested standardization</th></tr></thead><tbody>
+        <% records.forEach((record) => { const missing = new Set((record.issues.missingColumnIndexes || []).map(Number)); %>
+          <tr><td><b><%= record.excel_row_number %></b></td><td><div class="record-values">
+            <% recordColumns.forEach(({ name, index }) => { const value = record.original_values[index]; %>
+              <span class="record-value <%= missing.has(index) ? 'missing-cell' : '' %>"><b><%= name %></b><span><%= value === '' || value === null || value === undefined ? 'Missing' : String(value) %></span></span>
+            <% }) %>
+          </div></td>
+          <td><div class="issue-list">
+            <% if (record.missing_count) { %><span class="issue-chip issue-warning"><%= record.missing_count %> missing</span><% } %>
+            <% if (record.invalid_phone) { %><span class="issue-chip issue-danger">Invalid phone</span><% } %>
+            <% if (record.suspicious_phone) { %><span class="issue-chip issue-warning">Suspicious phone</span><% } %>
+            <% if (record.address_issue) { %><span class="issue-chip issue-warning">Address <%= record.issues.address ? record.issues.address.status : 'issue' %></span><% } %>
+            <% if (record.country_inconsistent) { %><span class="issue-chip issue-info">Country variation</span><% } %>
+            <% if (!record.missing_count && !record.invalid_phone && !record.suspicious_phone && !record.address_issue && !record.country_inconsistent) { %><span class="muted">No flagged data-quality issue</span><% } %>
+            <% if (record.issues.phone && record.issues.phone.reason) { %><small><%= record.issues.phone.reason %></small><% } %>
+            <% if (record.issues.address && record.issues.address.messages) { record.issues.address.messages.forEach((message) => { %><small><%= message %></small><% }); } %>
+          </div></td>
+          <td><div class="issue-list">
+            <% (duplicateDetails[record.id] || []).forEach((group) => { %><span class="issue-chip issue-info"><%= group.type %> duplicate · <%= Number(group.memberCount) %> rows</span><small>Excel rows: <%= group.rowNumbers.join(', ') %><%= Number(group.memberCount) > group.rowNumbers.length ? ', …' : '' %></small><% }) %>
+            <% if (!(duplicateDetails[record.id] || []).length) { %><span class="muted">No duplicate match</span><% } %>
+          </div></td>
+          <td><div class="suggestion-list">
+            <% Object.entries(record.suggestions).forEach(([type, value]) => { %><div><b><%= type %></b><code><%= JSON.stringify(value) %></code></div><% }) %>
+            <% if (!Object.keys(record.suggestions).length) { %><span class="muted">No suggestions</span><% } %>
+          </div></td></tr>
+        <% }) %>
+      </tbody></table></div>
+      <% if (recordPageCount > 1) { %><nav class="pagination" aria-label="Record pages"><span>Page <%= recordPage %> of <%= recordPageCount %></span><div><% if (recordPage > 1) { %><a class="button button-secondary button-small" href="/profiling/<%= run.id %>?page=<%= recordPage - 1 %>&amp;issue=<%= issue %>&amp;columnPage=<%= columnPage %>">Previous</a><% } %><% if (recordPage < recordPageCount) { %><a class="button button-secondary button-small" href="/profiling/<%= run.id %>?page=<%= recordPage + 1 %>&amp;issue=<%= issue %>&amp;columnPage=<%= columnPage %>">Next</a><% } %></div></nav><% } %>
+    <% } else { %><div class="empty-state empty-history"><div class="empty-icon"><i data-lucide="list-checks"></i></div><h3>No matching records</h3><p>Try a different issue filter.</p></div><% } %>
+  </section>
+<% } %>
+<%- include('partials/app-end') %>

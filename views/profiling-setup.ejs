@@ -1,0 +1,96 @@
+<%- include('partials/app-start') %>
+<section class="page-heading">
+  <div><p class="eyebrow">DATA QUALITY</p><h1>Data Profiling</h1><p class="muted">Analyze a private workbook copy. Profiling never modifies your original upload.</p></div>
+</section>
+<% if (errorMessage) { %><div class="alert alert-error" role="alert"><i data-lucide="circle-alert"></i><%= errorMessage %></div><% } %>
+
+<section class="panel profiling-source-panel">
+  <div class="panel-heading"><div><h2>Choose a worksheet</h2><p>Select a workbook and worksheet you have uploaded.</p></div></div>
+  <% if (sources.length) { %>
+    <form action="/profiling" method="get" class="profiling-source-form">
+      <label class="form-field"><span>Workbook and worksheet</span>
+        <select name="source" required>
+          <option value="">Select a worksheet</option>
+          <% sources.forEach((source) => { const key = `${source.upload_id}:${source.worksheet_index}`; %>
+            <option value="<%= key %>" <%= selectedSource && selectedSource.key === key ? 'selected' : '' %>><%= source.original_name %> — <%= source.worksheet_name %></option>
+          <% }) %>
+        </select>
+      </label>
+      <button class="button button-secondary" type="submit"><i data-lucide="table-properties"></i> Load worksheet</button>
+    </form>
+  <% } else { %>
+    <div class="empty-state"><div class="empty-icon"><i data-lucide="files"></i></div><h3>No worksheets to profile yet</h3><p>Upload an Excel workbook first, then return here to start profiling.</p><a class="button button-primary button-small" href="/uploads">Go to Excel Upload</a></div>
+  <% } %>
+</section>
+
+<% if (selectedSource) { %>
+  <section class="profiling-file-summary">
+    <div><span class="summary-label">WORKBOOK</span><b><%= selectedSource.upload.original_name %></b></div>
+    <div><span class="summary-label">WORKSHEET</span><b><%= selectedSource.worksheet.name %></b></div>
+    <div><span class="summary-label">ESTIMATED ROWS</span><b><%= Number(selectedSource.worksheet.rowCount).toLocaleString() %></b></div>
+    <div><span class="summary-label">COLUMNS</span><b><%= Number(selectedSource.worksheet.columnCount).toLocaleString() %></b></div>
+  </section>
+  <section class="panel profiling-config-panel">
+    <div class="panel-heading"><div><h2>Configure profiling</h2><p>Choose column mappings and duplicate comparison behavior before analysis.</p></div><span class="upload-badge"><i data-lucide="shield-check"></i> Read-only analysis</span></div>
+    <form action="/profiling" method="post" class="profiling-form">
+      <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+      <input type="hidden" name="source" value="<%= selectedSource.key %>">
+      <div class="profiling-form-grid">
+        <label class="form-field"><span>Phone number column</span>
+          <select name="phoneColumn"><option value="">Not configured</option>
+            <% headers.forEach((header, index) => { %><option value="<%= index %>" <%= suggestedColumns.phone === String(index) ? 'selected' : '' %>><%= columnNames[index] %></option><% }) %>
+          </select>
+        </label>
+        <label class="form-field"><span>Email column</span>
+          <select name="emailColumn"><option value="">Not configured</option>
+            <% headers.forEach((header, index) => { %><option value="<%= index %>" <%= suggestedColumns.email === String(index) ? 'selected' : '' %>><%= columnNames[index] %></option><% }) %>
+          </select>
+        </label>
+        <label class="form-field"><span>Address column</span>
+          <select name="addressColumn"><option value="">Not configured</option>
+            <% headers.forEach((header, index) => { %><option value="<%= index %>" <%= suggestedColumns.address === String(index) ? 'selected' : '' %>><%= columnNames[index] %></option><% }) %>
+          </select>
+        </label>
+        <label class="form-field"><span>Country column</span>
+          <select name="countryColumn"><option value="">Not configured</option>
+            <% headers.forEach((header, index) => { %><option value="<%= index %>" <%= suggestedColumns.country === String(index) ? 'selected' : '' %>><%= columnNames[index] %></option><% }) %>
+          </select>
+        </label>
+        <label class="form-field"><span>Default country for phone parsing</span>
+          <select name="defaultCountry"><option value="">International numbers only</option>
+            <% countryOptions.forEach((country) => { %><option value="<%= country.alpha2 %>"><%= country.name %> (+<%= country.callingCode %>)</option><% }) %>
+          </select>
+        </label>
+        <div class="form-field"><span>Header handling</span><label class="check-option"><input type="checkbox" name="hasHeaderRow" checked><span>First row contains column headers</span></label></div>
+      </div>
+      <div class="profiling-options">
+        <div><h3>Exact duplicate comparison</h3><p>Selected values are compared as a record key. Phone and email duplicates are checked separately when mapped.</p></div>
+        <label class="check-option"><input type="checkbox" name="compareAllColumns" checked data-compare-all><span>Compare all columns for exact duplicates</span></label>
+        <div class="duplicate-columns">
+          <% headers.forEach((header, index) => { %>
+            <label class="check-option"><input type="checkbox" name="duplicateColumns" value="<%= index %>" checked data-duplicate-column><span><%= columnNames[index] %></span></label>
+          <% }) %>
+        </div>
+        <div class="option-row">
+          <label class="check-option"><input type="checkbox" name="ignoreCase" checked><span>Ignore letter case</span></label>
+          <label class="check-option"><input type="checkbox" name="trimWhitespace" checked><span>Trim surrounding whitespace</span></label>
+        </div>
+      </div>
+      <div class="upload-submit profiling-submit"><span class="small-note"><i data-lucide="lock-keyhole"></i> Values remain associated with your account. Suggested changes are separate from source data.</span><button type="submit" class="button button-primary"><i data-lucide="scan-search"></i> Start profiling</button></div>
+    </form>
+  </section>
+<% } %>
+
+<section class="panel profiling-history-panel">
+  <div class="panel-heading"><div><h2>Recent profiling runs</h2><p>Your saved analyses and their current status.</p></div></div>
+  <% if (recentRuns && recentRuns.length) { %>
+    <div class="table-wrap"><table><thead><tr><th>Workbook</th><th>Worksheet</th><th>Status</th><th>Records</th><th>Completeness</th><th>Created</th><th></th></tr></thead><tbody>
+      <% recentRuns.forEach((run) => { %>
+        <tr><td><%= run.original_name %></td><td><%= run.worksheet_name %></td><td><span class="profile-status status-<%= run.status %>"><%= run.status %></span></td><td><%= Number(run.total_records).toLocaleString() %></td><td><%= Number(run.overall_completeness).toFixed(2) %>%</td><td><%= new Date(run.created_at).toLocaleString() %></td><td><a class="table-link" href="/profiling/<%= run.id %>">View</a></td></tr>
+      <% }) %>
+    </tbody></table></div>
+  <% } else { %>
+    <div class="empty-state empty-history"><div class="empty-icon"><i data-lucide="scan-search"></i></div><h3>No profiling runs yet</h3><p>Choose a worksheet above to save your first data-quality analysis.</p></div>
+  <% } %>
+</section>
+<%- include('partials/app-end') %>

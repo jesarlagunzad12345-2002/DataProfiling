@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="csrf-token" content="<%= csrfToken %>">
+  <title><%= title %> | ClearSheet</title>
+  <link rel="stylesheet" href="/css/app.css">
+  <script src="/js/app.js" defer></script>
+  <% if (activePage === 'uploads') { %><script src="/js/upload.js" defer></script><% } %>
+  <% if (activePage === 'profiling') { %><script src="/js/profiling.js" defer></script><% } %>
+  <% if (activePage === 'word-manipulation') { %><script src="/js/word-manipulation.js" defer></script><% } %>
+  <% if (activePage === 'review') { %><script src="/js/review.js" defer></script><% } %>
+  <% if (activePage === 'exports') { %><script src="/js/exports.js" defer></script><% } %>
+  <% if (activePage === 'dashboard') { %><script src="/vendor/chart.js/chart.umd.js" defer></script><script src="/js/dashboard.js" defer></script><% } %>
+  <% if (activePage === 'reports') { %><script src="/vendor/chart.js/chart.umd.js" defer></script><script src="/js/reports.js" defer></script><% } %>
+</head>
+<body class="app-page">
+  <div class="app-layout">
+    <%- include('sidebar') %>
+    <div class="app-main">
+      <%- include('topbar') %>
+      <main class="workspace-content" data-profile-polling="<%= typeof profilePolling !== 'undefined' && profilePolling ? 'true' : 'false' %>">

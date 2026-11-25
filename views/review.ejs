@@ -1,0 +1,123 @@
+<%- include('partials/app-start') %>
+<section class="page-heading review-heading">
+  <div><p class="eyebrow">MANUAL APPROVAL</p><h1>Review Changes</h1><p class="muted">Only approved cell changes are written to the private working copy. Uploaded workbooks stay untouched.</p></div>
+  <% if (selectedUploadId) { %>
+    <form action="/review/sync/<%= selectedUploadId %>" method="post">
+      <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+      <button class="button button-secondary" type="submit"><i data-lucide="refresh-cw"></i> Sync latest findings</button>
+    </form>
+  <% } %>
+</section>
+
+<section class="stat-grid review-stat-grid" aria-label="Review summary">
+  <article class="stat-card"><span class="stat-icon stat-amber"><i data-lucide="clock-3"></i></span><p>Pending changes</p><strong><%= Number(summary.pending_count).toLocaleString() %></strong><span>Ready for a decision</span></article>
+  <article class="stat-card"><span class="stat-icon stat-teal"><i data-lucide="circle-check"></i></span><p>Approved changes</p><strong><%= Number(summary.approved_count).toLocaleString() %></strong><span>Applied to the working copy</span></article>
+  <article class="stat-card"><span class="stat-icon stat-violet"><i data-lucide="circle-x"></i></span><p>Rejected changes</p><strong><%= Number(summary.rejected_count).toLocaleString() %></strong><span>Kept in the review history</span></article>
+  <article class="stat-card"><span class="stat-icon stat-blue"><i data-lucide="scan-search"></i></span><p>Requires review</p><strong><%= Number(summary.requires_review_count).toLocaleString() %></strong><span>Informational or needs an edited value</span></article>
+</section>
+
+<section class="panel review-source-panel">
+  <div class="panel-heading"><div><h2>Choose a workbook</h2><p>Sync imports suggestions from the latest completed profiling run and earlier confirmed word operations.</p></div></div>
+  <% if (uploads.length) { %>
+    <form action="/review" method="get" class="review-source-form">
+      <label class="form-field"><span>Workbook</span><select name="upload" required>
+        <option value="">All workbooks</option>
+        <% uploads.forEach((upload) => { %><option value="<%= upload.id %>" <%= Number(selectedUploadId) === Number(upload.id) ? 'selected' : '' %>><%= upload.originalName %></option><% }) %>
+      </select></label>
+      <button class="button button-secondary" type="submit">Load review items</button>
+    </form>
+  <% } else { %>
+    <div class="empty-state"><div class="empty-icon"><i data-lucide="files"></i></div><h3>No workbooks available</h3><p>Upload an Excel workbook and run Data Profiling or submit a Word Manipulation operation.</p><a class="button button-primary button-small" href="/uploads">Go to Excel Upload</a></div>
+  <% } %>
+</section>
+
+<section class="panel review-list-panel">
+  <div class="panel-heading">
+    <div><h2>Changes and findings</h2><p>Cell-level values can be edited before approval. Address components and duplicate findings remain review-only until you provide a cell value.</p></div>
+    <span class="count-pill"><%= Number(total).toLocaleString() %> items</span>
+  </div>
+  <form action="/review" method="get" class="review-filter-form">
+    <% if (selectedUploadId) { %><input type="hidden" name="upload" value="<%= selectedUploadId %>"><% } %>
+    <label class="form-field"><span>Search</span><input type="search" name="q" maxlength="120" value="<%= search %>" placeholder="Workbook, cell, or reason"></label>
+    <label class="form-field"><span>Status</span><select name="status">
+      <option value="">All statuses</option>
+      <option value="pending" <%= status === 'pending' ? 'selected' : '' %>>Pending</option>
+      <option value="requires_review" <%= status === 'requires_review' ? 'selected' : '' %>>Requires review</option>
+      <option value="approved" <%= status === 'approved' ? 'selected' : '' %>>Approved</option>
+      <option value="rejected" <%= status === 'rejected' ? 'selected' : '' %>>Rejected</option>
+    </select></label>
+    <label class="form-field"><span>Source</span><select name="source">
+      <option value="">All sources</option>
+      <option value="profiling" <%= sourceType === 'profiling' ? 'selected' : '' %>>Data Profiling</option>
+      <option value="word-manipulation" <%= sourceType === 'word-manipulation' ? 'selected' : '' %>>Word Manipulation</option>
+    </select></label>
+    <button class="button button-secondary button-small" type="submit"><i data-lucide="search"></i> Filter</button>
+  </form>
+
+  <% if (changes.length) { %>
+    <form id="review-bulk-form" action="/review/bulk" method="post">
+      <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+      <div class="review-bulk-bar">
+        <label class="checkbox-label"><input type="checkbox" data-review-select-all><span>Select visible</span></label>
+        <span class="small-note">Bulk actions are limited to 100 items from the same workbook.</span>
+        <div>
+          <button class="button button-primary button-small" type="submit" name="action" value="approve" data-review-confirm="Approve selected changes and apply them to the working copy?">Approve selected</button>
+          <button class="button button-secondary button-small" type="submit" name="action" value="reject" data-review-confirm="Reject selected changes? Rejected items remain in the audit history.">Reject selected</button>
+        </div>
+      </div>
+    </form>
+    <div class="table-wrap">
+      <table class="review-table">
+        <thead><tr><th></th><th>Worksheet / row</th><th>Column / cell</th><th>Original value</th><th>Proposed value</th><th>Reason / details</th><th>Source</th><th>Status</th><th>Actions</th></tr></thead>
+        <tbody>
+          <% changes.forEach((change) => { %>
+            <tr>
+              <td><% if (change.status === 'pending' || change.status === 'requires_review') { %><input type="checkbox" name="ids" value="<%= change.id %>" form="review-bulk-form" aria-label="Select review item <%= change.id %>"><% } %></td>
+              <td><b><%= change.worksheet_name || `Sheet ${change.worksheet_index + 1}` %></b><small>Row <%= change.excel_row_number %> · <%= change.original_name %></small></td>
+              <td><b><%= change.column_name || 'Finding' %></b><small><%= change.cell_reference || 'No single target cell' %></small></td>
+              <td class="review-value"><%= change.displayOriginal %></td>
+              <td class="review-value">
+                <% if (change.cell_reference && (change.status === 'pending' || change.status === 'requires_review')) { %>
+                  <form id="review-edit-<%= change.id %>" action="/review/<%= change.id %>/edit" method="post">
+                    <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+                    <input type="text" name="proposedValue" maxlength="32767" value="<%= change.inputValue %>" placeholder="Enter a value to approve">
+                  </form>
+                <% } else { %><%= change.displayProposed %><% } %>
+              </td>
+              <td class="review-reason"><b><%= change.reason %></b><% if (change.displayDetails) { %><details><summary>View profiling details</summary><code><%= change.displayDetails %></code></details><% } %></td>
+              <td><span class="review-source-tag source-<%= change.source_type %>"><%= change.sourceLabel %></span></td>
+              <td><span class="review-status status-<%= change.status %>"><%= change.status.replace('_', ' ') %></span></td>
+              <td class="review-actions">
+                <% if (change.status === 'pending' || change.status === 'requires_review') { %>
+                  <% if (change.cell_reference) { %><button class="button button-secondary button-small" type="submit" form="review-edit-<%= change.id %>">Save value</button><% } %>
+                  <% if (change.status === 'pending' && change.is_actionable) { %>
+                    <form action="/review/<%= change.id %>/approve" method="post" data-review-confirm="Approve this change and apply it to the working copy?"><input type="hidden" name="_csrf" value="<%= csrfToken %>"><button class="button button-primary button-small" type="submit">Approve</button></form>
+                  <% } %>
+                  <form action="/review/<%= change.id %>/reject" method="post" data-review-confirm="Reject this item? It will remain in the audit history."><input type="hidden" name="_csrf" value="<%= csrfToken %>"><button class="button button-secondary button-small" type="submit">Reject</button></form>
+                <% } %>
+              </td>
+            </tr>
+          <% }) %>
+        </tbody>
+      </table>
+    </div>
+    <% if (pageCount > 1) { %>
+      <nav class="pagination" aria-label="Review change pages"><span>Page <%= page %> of <%= pageCount %></span><div>
+        <% if (page > 1) { %><a class="button button-secondary button-small" href="/review?<%= new URLSearchParams({ ...(selectedUploadId ? { upload: String(selectedUploadId) } : {}), ...(status ? { status } : {}), ...(sourceType ? { source: sourceType } : {}), ...(search ? { q: search } : {}), page: String(page - 1) }).toString() %>">Previous</a><% } %>
+        <% if (page < pageCount) { %><a class="button button-secondary button-small" href="/review?<%= new URLSearchParams({ ...(selectedUploadId ? { upload: String(selectedUploadId) } : {}), ...(status ? { status } : {}), ...(sourceType ? { source: sourceType } : {}), ...(search ? { q: search } : {}), page: String(page + 1) }).toString() %>">Next</a><% } %>
+      </div></nav>
+    <% } %>
+  <% } else { %>
+    <div class="empty-state"><div class="empty-icon"><i data-lucide="list-checks"></i></div><h3>No review items match</h3><p>Choose a workbook and sync its latest profiling findings, or submit a Word Manipulation operation for review.</p></div>
+  <% } %>
+</section>
+
+<section class="panel review-audit-panel">
+  <div class="panel-heading"><div><h2>Recent audit activity</h2><p>Edits, approvals, and rejections are recorded with the acting user and timestamp.</p></div><span class="count-pill"><%= audit.length %> recent</span></div>
+  <% if (audit.length) { %>
+    <div class="table-wrap"><table class="review-audit-table"><thead><tr><th>Time / user</th><th>Workbook / worksheet</th><th>Cell</th><th>Action</th><th>Original</th><th>Proposed value</th><th>Status</th></tr></thead><tbody>
+      <% audit.forEach((entry) => { %><tr><td><b><%= entry.username %></b><small><%= new Date(entry.created_at).toLocaleString() %></small></td><td><b><%= entry.original_name %></b><small>Sheet <%= entry.worksheet_index + 1 %></small></td><td><%= entry.cell_reference || 'Finding' %></td><td><%= entry.action %></td><td class="review-value"><%= entry.displayOriginal %></td><td class="review-value"><%= entry.displayProposed %></td><td><span class="review-status status-<%= entry.new_status %>"><%= entry.new_status.replace('_', ' ') %></span></td></tr><% }) %>
+    </tbody></table></div>
+  <% } else { %><div class="empty-history muted">No review decisions have been recorded yet.</div><% } %>
+</section>
+<%- include('partials/app-end') %>

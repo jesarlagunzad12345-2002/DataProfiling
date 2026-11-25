@@ -1,0 +1,84 @@
+<%- include('partials/app-start') %>
+<section class="page-heading export-heading">
+  <div><p class="eyebrow">DOWNLOAD WORKBOOKS</p><h1>Excel Export</h1><p class="muted">Export selected workbook data or download an exact copy of your original upload.</p></div>
+</section>
+<% if (notice) { %><div class="alert alert-success" role="status"><i data-lucide="circle-check"></i><%= notice %></div><% } %>
+<% if (errorMessage) { %><div class="alert alert-error" role="alert"><i data-lucide="circle-alert"></i><%= errorMessage %></div><% } %>
+
+<section class="panel export-source-panel">
+  <div class="panel-heading"><div><h2>Choose a workbook</h2><p>Exports are private, recorded in your history, and automatically removed after 24 hours.</p></div></div>
+  <% if (uploads.length) { %>
+    <form action="/exports" method="get" class="export-source-form">
+      <label class="form-field"><span>Workbook</span><select name="upload" required>
+        <option value="">Select an uploaded workbook</option>
+        <% uploads.forEach((upload) => { %><option value="<%= upload.id %>" <%= Number(selectedUploadId) === Number(upload.id) ? 'selected' : '' %>><%= upload.original_name %> · <%= new Date(upload.uploaded_at).toLocaleDateString() %></option><% }) %>
+      </select></label>
+      <button class="button button-secondary" type="submit"><i data-lucide="settings-2"></i> Configure export</button>
+    </form>
+  <% } else { %>
+    <div class="empty-state"><div class="empty-icon"><i data-lucide="files"></i></div><h3>No workbooks to export</h3><p>Upload an Excel workbook first. It will appear here with its worksheet and column options.</p><a class="button button-primary button-small" href="/uploads">Go to Excel Upload</a></div>
+  <% } %>
+</section>
+
+<% if (selectedUpload) { %>
+  <section class="panel export-config-panel">
+    <div class="panel-heading"><div><h2>Export settings</h2><p><b><%= selectedUpload.original_name %></b> · <%= selectedUpload.worksheets.length %> worksheets · <%= selectedUpload.file_extension.toUpperCase() %></p></div></div>
+    <form action="/exports" method="post" class="export-config-form" data-export-form>
+      <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+      <input type="hidden" name="uploadId" value="<%= selectedUpload.id %>">
+      <input type="hidden" name="selection" value="" data-export-selection-value>
+      <div class="export-type-grid">
+        <label class="form-field"><span>Export type</span><select id="export-type" name="exportType" required>
+          <option value="cleaned">Cleaned workbook (approved changes only)</option>
+          <option value="complete">Complete records</option>
+          <option value="incomplete">Incomplete records</option>
+          <option value="original">Original workbook (untouched exact copy)</option>
+        </select></label>
+        <label class="form-field" data-cleaned-filter><span>Cleaned workbook records</span><select name="recordFilter">
+          <option value="all">All records</option>
+          <option value="complete">Complete records only</option>
+          <option value="incomplete">Incomplete records only</option>
+        </select></label>
+      </div>
+      <p class="export-original-note" data-original-note hidden><i data-lucide="shield-check"></i> Original export copies the uploaded file byte-for-byte; worksheet and column selections do not alter it.</p>
+      <% if (selectedUpload.file_extension === 'xls') { %><p class="export-original-note"><i data-lucide="file-spreadsheet"></i> Filtered and cleaned exports are converted to .xlsx. Original exports remain in the uploaded .xls format.</p><% } %>
+      <div class="export-selection" data-export-selection>
+        <div class="export-selection-heading"><div><h3>Worksheets and columns</h3><p>Select at least one worksheet and one column per selected worksheet.</p></div><button class="button button-secondary button-small" type="button" data-export-toggle-all>Select all</button></div>
+        <% worksheetOptions.forEach((worksheet) => { %>
+          <fieldset class="export-worksheet">
+            <legend><label class="checkbox-label"><input type="checkbox" value="<%= worksheet.worksheetIndex %>" checked data-export-sheet><span><b><%= worksheet.name %></b></span></label></legend>
+            <details open>
+              <summary><%= worksheet.columns.length %> columns</summary>
+              <div class="export-column-grid">
+                <% worksheet.columns.forEach((column) => { %>
+                  <label class="checkbox-label export-column"><input type="checkbox" value="<%= worksheet.worksheetIndex %>:<%= column.index %>" checked data-export-column="<%= worksheet.worksheetIndex %>"><span><%= column.name %></span></label>
+                <% }) %>
+              </div>
+            </details>
+          </fieldset>
+        <% }) %>
+      </div>
+      <div class="export-submit-row"><span class="small-note"><i data-lucide="lock-keyhole"></i> Export summary is shown before the download button.</span><button class="button button-primary" type="submit"><i data-lucide="file-down"></i> Generate export</button></div>
+    </form>
+  </section>
+<% } %>
+
+<section class="panel export-history-panel">
+  <div class="panel-heading"><div><h2>Recent exports</h2><p>Exports are associated with your account and expire automatically after 24 hours.</p></div><span class="count-pill"><%= recentExports.length %> recent</span></div>
+  <% if (recentExports.length) { %>
+    <div class="table-wrap"><table class="export-history-table">
+      <thead><tr><th>File</th><th>Type</th><th>Records</th><th>Approved / rejected</th><th>Created</th><th>Expires</th><th></th></tr></thead>
+      <tbody><% recentExports.forEach((item) => { %>
+        <tr><td><b><%= item.filename %></b><small><%= item.original_name %></small></td>
+          <td><span class="export-type-tag"><%= item.export_type %><% if (item.export_type === 'cleaned' && item.record_filter !== 'all') { %> · <%= item.record_filter %><% } %></span><% if (item.file_deleted_at || new Date(item.expires_at).getTime() <= Date.now()) { %><small class="export-history-expired">Expired</small><% } %></td>
+          <td><%= Number(item.record_count).toLocaleString() %></td>
+          <td><%= Number(item.approved_change_count).toLocaleString() %> / <%= Number(item.rejected_change_count).toLocaleString() %></td>
+          <td><%= new Date(item.created_at).toLocaleString() %></td><td><%= new Date(item.expires_at).toLocaleString() %></td>
+          <td><a class="table-link" href="/exports/<%= item.id %>">View summary</a></td></tr>
+      <% }) %></tbody>
+    </table></div>
+  <% } else { %>
+    <div class="empty-state"><div class="empty-icon"><i data-lucide="download"></i></div><h3>No exports yet</h3><p>Generated workbook files and their download summaries will appear here.</p></div>
+  <% } %>
+</section>
+<%- include('partials/app-end') %>

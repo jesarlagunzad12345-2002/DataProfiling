@@ -1,0 +1,37 @@
+<%- include('partials/app-start') %>
+<section class="page-heading">
+  <div><p class="eyebrow">WORKBOOK LIBRARY</p><h1>Excel Upload</h1><p class="muted">Upload and preview workbook contents. Your source file is never modified.</p></div>
+</section>
+<% if (notice) { %><div class="alert alert-success" role="status"><i data-lucide="circle-check"></i><%= notice %></div><% } %>
+<% if (errorMessage) { %><div class="alert alert-error" role="alert"><i data-lucide="circle-alert"></i><%= errorMessage %></div><% } %>
+<% if (successMessage) { %><div class="alert alert-success" role="status"><%= successMessage %></div><% } %>
+<section class="panel upload-panel">
+  <div class="panel-heading"><div><h2>Upload a workbook</h2><p>Supported formats: .xlsx and .xls · Maximum size: configured by your administrator</p></div><span class="upload-badge"><i data-lucide="lock-keyhole"></i> Private upload</span></div>
+  <form action="/uploads" method="post" enctype="multipart/form-data" class="upload-form">
+    <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+    <label class="drop-zone" for="workbook">
+      <span class="drop-icon"><i data-lucide="cloud-upload"></i></span>
+      <strong data-file-name>Choose an Excel workbook</strong>
+      <span class="muted">Browse your device to select a file</span>
+      <span class="button button-secondary button-small">Choose file</span>
+      <input id="workbook" name="workbook" type="file" accept=".xlsx,.xls" required>
+    </label>
+    <div class="upload-submit"><span class="small-note"><i data-lucide="shield-check"></i> Your original file is preserved and stored privately.</span><button type="submit" class="button button-primary"><i data-lucide="upload"></i> Upload workbook</button></div>
+  </form>
+</section>
+<section class="panel history-panel">
+  <div class="panel-heading"><div><h2>Upload history</h2><p>Only you can view the workbooks in this list.</p></div>
+    <form class="search-form" action="/uploads" method="get"><i data-lucide="search"></i><input type="search" name="search" value="<%= search %>" placeholder="Search workbooks" aria-label="Search workbooks"><button type="submit" class="button button-secondary button-small">Search</button></form>
+  </div>
+  <% if (uploads.length) { %>
+    <div class="table-wrap"><table><thead><tr><th>Workbook</th><th>Worksheets</th><th>Rows</th><th>File size</th><th>Uploaded</th><th></th></tr></thead><tbody>
+      <% uploads.forEach((upload) => { %>
+        <tr><td><span class="file-cell"><span class="file-icon"><i data-lucide="file-spreadsheet"></i></span><span><b><%= upload.original_name %></b><small>.<%= upload.file_extension %></small></span></span></td><td><%= upload.worksheet_count %></td><td><%= Number(upload.total_rows).toLocaleString() %></td><td><%= (upload.file_size / 1024 / 1024).toFixed(2) %> MB</td><td><%= new Date(upload.uploaded_at).toLocaleString() %></td><td><a class="table-link" href="/uploads/<%= upload.id %>/worksheets/0">Preview</a></td></tr>
+      <% }) %>
+    </tbody></table></div>
+    <% if (pageCount > 1) { %><nav class="pagination" aria-label="Upload history pages"><span>Page <%= page %> of <%= pageCount %></span><div><% if (page > 1) { %><a class="button button-secondary button-small" href="/uploads?page=<%= page - 1 %>&amp;search=<%= encodeURIComponent(search) %>">Previous</a><% } %><% if (page < pageCount) { %><a class="button button-secondary button-small" href="/uploads?page=<%= page + 1 %>&amp;search=<%= encodeURIComponent(search) %>">Next</a><% } %></div></nav><% } %>
+  <% } else { %>
+    <div class="empty-state empty-history"><div class="empty-icon"><i data-lucide="files"></i></div><h3>No workbooks yet</h3><p>Your uploads will appear here with worksheet counts and preview links.</p></div>
+  <% } %>
+</section>
+<%- include('partials/app-end') %>

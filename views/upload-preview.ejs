@@ -1,0 +1,22 @@
+<%- include('partials/app-start') %>
+<div class="back-row"><a href="/uploads" class="text-link"><i data-lucide="arrow-left"></i> Back to uploads</a></div>
+<section class="page-heading preview-heading">
+  <div><p class="eyebrow">READ-ONLY WORKSHEET PREVIEW</p><h1><%= upload.original_name %></h1><p class="muted">Uploaded <%= new Date(upload.uploaded_at).toLocaleString() %> · Original workbook remains unchanged</p></div>
+  <span class="upload-badge"><i data-lucide="shield-check"></i> Private to you</span>
+</section>
+<section class="panel worksheet-panel">
+  <div class="panel-heading"><div><h2>Worksheets</h2><p>Select a worksheet to preview its first 10 rows and 20 columns.</p></div><span class="count-pill"><%= upload.worksheets.length %> sheets</span></div>
+  <div class="sheet-tabs" role="tablist" aria-label="Workbook worksheets">
+    <% upload.worksheets.forEach((sheet) => { %>
+      <a role="tab" aria-selected="<%= sheet.worksheet_index === worksheet.worksheet_index %>" class="sheet-tab <%= sheet.worksheet_index === worksheet.worksheet_index ? 'selected' : '' %>" href="/uploads/<%= upload.id %>/worksheets/<%= sheet.worksheet_index %>"><i data-lucide="table-2"></i><%= sheet.name %></a>
+    <% }) %>
+  </div>
+  <div class="sheet-summary"><span><i data-lucide="rows-3"></i> <b><%= Number(worksheet.rowCount).toLocaleString() %></b> rows</span><span><i data-lucide="columns-3"></i> <b><%= Number(worksheet.columnCount).toLocaleString() %></b> columns</span><span class="preview-note">Showing a bounded preview only</span></div>
+  <% if (preview.rows.length) { %>
+    <div class="table-wrap preview-table-wrap"><table class="preview-table"><thead><tr><th class="row-index">#</th><% preview.headers.forEach((header) => { %><th><%= header %></th><% }) %></tr></thead><tbody>
+      <% preview.rows.forEach((row, rowIndex) => { %><tr><td class="row-index"><%= rowIndex + 1 %></td><% row.forEach((cell) => { %><td title="<%= cell %>"><%= cell || '—' %></td><% }) %></tr><% }) %>
+    </tbody></table></div>
+    <% if (worksheet.rowCount > 10 || worksheet.columnCount > 20) { %><p class="preview-limit-note"><i data-lucide="info"></i> This preview is limited to 10 rows and 20 columns. The workbook is not changed.</p><% } %>
+  <% } else { %><div class="empty-state"><div class="empty-icon"><i data-lucide="table-2"></i></div><h3>This worksheet is empty</h3><p>No cell values were found in this worksheet.</p></div><% } %>
+</section>
+<%- include('partials/app-end') %>

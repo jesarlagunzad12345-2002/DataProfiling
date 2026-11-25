@@ -1,0 +1,27 @@
+<%- include('partials/app-start') %>
+<section class="page-heading export-heading">
+  <div><p class="eyebrow">EXPORT SUMMARY</p><h1>Your workbook is ready</h1><p class="muted">Review these details before downloading. The uploaded original remains unchanged.</p></div>
+  <a class="button button-secondary" href="/exports"><i data-lucide="arrow-left"></i> Back to exports</a>
+</section>
+<% if (notice) { %><div class="alert alert-success" role="status"><i data-lucide="circle-check"></i><%= notice %></div><% } %>
+<section class="panel export-summary-panel">
+  <div class="panel-heading"><div><h2><%= exportItem.filename %></h2><p>Source workbook: <%= exportItem.original_name %></p></div><span class="export-type-tag"><%= exportItem.export_type %><% if (exportItem.export_type === 'cleaned' && exportItem.record_filter !== 'all') { %> · <%= exportItem.record_filter %><% } %></span></div>
+  <div class="export-summary-grid">
+    <article><span>Total records in export</span><strong><%= Number(exportItem.record_count).toLocaleString() %></strong></article>
+    <article><span>Complete records</span><strong><%= exportItem.complete_count === null ? '—' : Number(exportItem.complete_count).toLocaleString() %></strong></article>
+    <article><span>Incomplete records</span><strong><%= exportItem.incomplete_count === null ? '—' : Number(exportItem.incomplete_count).toLocaleString() %></strong></article>
+    <article><span>Approved modifications</span><strong><%= Number(exportItem.approved_change_count).toLocaleString() %></strong></article>
+    <article><span>Rejected modifications</span><strong><%= Number(exportItem.rejected_change_count).toLocaleString() %></strong></article>
+    <article><span>Worksheets / columns</span><strong><%= Number(exportItem.worksheet_count).toLocaleString() %> / <%= Number(exportItem.column_count).toLocaleString() %></strong></article>
+  </div>
+  <% if (exportItem.complete_count === null) { %><p class="export-profile-note">Completeness counts are unavailable for this selection. Run Data Profiling on every selected worksheet to include them.</p><% } %>
+  <div class="export-summary-footer">
+    <p class="small-note">Created <%= new Date(exportItem.created_at).toLocaleString() %> · Available until <%= new Date(exportItem.expires_at).toLocaleString() %></p>
+    <% if (isExpired) { %>
+      <span class="export-expired-note">The export file has expired. Generate it again to download a fresh copy.</span>
+    <% } else { %>
+      <a class="button button-primary" href="/exports/<%= exportItem.id %>/download"><i data-lucide="file-down"></i> Download <%= exportItem.filename %></a>
+    <% } %>
+  </div>
+</section>
+<%- include('partials/app-end') %>

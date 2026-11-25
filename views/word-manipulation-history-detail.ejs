@@ -1,0 +1,27 @@
+<%- include('partials/app-start') %>
+<section class="page-heading">
+  <div><p class="eyebrow">AUDIT TRAIL</p><h1>Operation details</h1><p class="muted"><%= upload.original_name %> — <%= history.displayOperation %> on worksheet <%= history.worksheet_index + 1 %>.</p></div>
+  <a class="button button-secondary" href="/word-manipulation/history/<%= upload.id %>"><i data-lucide="arrow-left"></i> Back to history</a>
+</section>
+
+<section class="panel word-history-panel">
+  <div class="word-history-detail-summary">
+    <div><span class="summary-label">OPERATION</span><b><%= history.displayOperation %></b></div>
+    <div><span class="summary-label">CHANGED CELLS</span><b><%= Number(history.change_count).toLocaleString() %></b></div>
+    <div><span class="summary-label">STATUS</span><b class="word-history-status status-<%= history.status %>"><%= history.status %></b></div>
+    <div><span class="summary-label">USER AND TIME</span><b><%= history.username %> · <%= new Date(history.created_at).toLocaleString() %></b></div>
+  </div>
+  <div class="table-wrap"><table class="word-preview-table"><thead><tr><th>Cell</th><th>Original value</th><th>Modified value</th></tr></thead><tbody>
+    <% changes.forEach((change) => { %><tr><td><%= change.cell_reference %></td><td class="word-value-cell"><%= change.original_value %></td><td class="word-value-cell"><%= change.modified_value %></td></tr><% }) %>
+  </tbody></table></div>
+  <% if (pageCount > 1) { %>
+    <nav class="pagination" aria-label="Cell changes pagination">
+      <span>Page <%= page %> of <%= pageCount %> · <%= Number(total).toLocaleString() %> cell changes</span>
+      <div>
+        <% if (page > 1) { %><a class="button button-secondary button-small" href="?page=<%= page - 1 %>">Previous</a><% } %>
+        <% if (page < pageCount) { %><a class="button button-secondary button-small" href="?page=<%= page + 1 %>">Next</a><% } %>
+      </div>
+    </nav>
+  <% } %>
+</section>
+<%- include('partials/app-end') %>

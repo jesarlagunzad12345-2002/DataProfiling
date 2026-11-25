@@ -1,0 +1,41 @@
+{
+  "name": "data-profiling-cleaning-platform",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Private Excel upload, preview, and data-quality workspace",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js",
+    "test": "node --test",
+    "build": "node scripts/check-syntax.js",
+    "user:create": "node scripts/manage-user.js create",
+    "user:reset-password": "node scripts/manage-user.js reset"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "@e965/xlsx": "^0.20.3",
+    "bcryptjs": "^3.0.3",
+    "chart.js": "^4.6.1",
+    "dotenv": "^17.2.3",
+    "ejs": "^7.0.2",
+    "exceljs": "^4.4.0",
+    "express": "^5.3.0",
+    "express-mysql-session": "^3.0.3",
+    "express-rate-limit": "^8.7.5",
+    "express-session": "^1.19.0",
+    "helmet": "^8.3.0",
+    "i18n-iso-countries": "^7.14.0",
+    "libphonenumber-js": "^1.13.17",
+    "multer": "^2.5.0",
+    "mysql2": "^3.24.6",
+    "saxes": "^5.0.1",
+    "unzipper": "^0.10.14"
+  },
+  "overrides": {
+    "mysql2": "^3.24.6",
+    "uuid": "^11.1.1"
+  }
+}

@@ -1,0 +1,79 @@
+<%- include('partials/app-start') %>
+<section class="page-heading">
+  <div><p class="eyebrow">DATA QUALITY ANALYTICS</p><h1>Reports</h1><p class="muted">Review profiling summaries, compare workbooks, and track data-quality and manipulation trends.</p></div>
+</section>
+
+<section class="panel report-filter-panel">
+  <div class="panel-heading"><div><h2>Filter reports</h2><p>All values are restricted to your account and selected upload date range.</p></div></div>
+  <form action="/reports" method="get" class="report-filter-form">
+    <label class="form-field"><span>From date</span><input type="date" name="from" value="<%= fromDate %>"></label>
+    <label class="form-field"><span>To date</span><input type="date" name="to" value="<%= toDate %>"></label>
+    <label class="form-field report-upload-filter"><span>Uploads to compare</span>
+      <select name="uploadIds" multiple size="4" aria-describedby="report-upload-hint">
+        <% uploads.forEach((upload) => { %><option value="<%= upload.id %>" <%= selectedUploadIds.includes(Number(upload.id)) ? 'selected' : '' %>><%= upload.original_name %> · <%= new Date(upload.uploaded_at).toLocaleDateString() %></option><% }) %>
+      </select>
+      <small id="report-upload-hint">Leave blank to include all matching uploads. Use Ctrl or Cmd to select more than one.</small>
+    </label>
+    <div class="report-filter-actions"><button class="button button-primary button-small" type="submit">Apply filters</button><a class="button button-secondary button-small" href="/reports">Clear filters</a></div>
+  </form>
+</section>
+
+<section class="report-chart-grid" data-report-charts="<%= JSON.stringify(charts) %>">
+  <article class="panel report-chart-card">
+    <div class="panel-heading"><div><h2>Completeness comparison</h2><p>Latest completed profiles for matching uploads</p></div></div>
+    <div class="report-chart-body"><p class="chart-loading" data-chart-loading>Loading chart…</p><canvas data-chart="completeness" aria-label="Completeness by upload"></canvas></div>
+  </article>
+  <article class="panel report-chart-card">
+    <div class="panel-heading"><div><h2>Missing values and duplicates</h2><p>Latest completed profiles for matching uploads</p></div></div>
+    <div class="report-chart-body"><p class="chart-loading" data-chart-loading>Loading chart…</p><canvas data-chart="quality" aria-label="Missing values and duplicate records by upload"></canvas></div>
+  </article>
+  <article class="panel report-chart-card report-chart-wide">
+    <div class="panel-heading"><div><h2>Word Manipulation activity</h2><p>Operations recorded within the selected date and upload filters</p></div></div>
+    <div class="report-chart-body"><p class="chart-loading" data-chart-loading>Loading chart…</p><canvas data-chart="manipulation" aria-label="Word Manipulation activity over time"></canvas></div>
+  </article>
+</section>
+
+<section class="panel report-results-panel">
+  <div class="panel-heading">
+    <div><h2>Profiling summaries and upload comparison</h2><p><%= Number(total).toLocaleString() %> workbook summaries match these filters. Completeness is weighted by profiled cells.</p></div>
+    <span class="count-pill"><%= Number(total).toLocaleString() %> uploads</span>
+  </div>
+  <form action="/reports/export.csv" method="get" class="report-export-form">
+    <% if (fromDate) { %><input type="hidden" name="from" value="<%= fromDate %>"><% } %>
+    <% if (toDate) { %><input type="hidden" name="to" value="<%= toDate %>"><% } %>
+    <% selectedUploadIds.forEach((id) => { %><input type="hidden" name="uploadIds" value="<%= id %>"><% }) %>
+    <span class="small-note">Export upload, profile, approval, and manipulation summary</span>
+    <button class="button button-secondary button-small" type="submit"><i data-lucide="download"></i> Export report summary</button>
+  </form>
+  <% if (rows.length) { %>
+    <div class="table-wrap"><table class="report-table"><thead><tr><th>Filename</th><th>Upload date</th><th>Total records</th><th>Complete</th><th>Incomplete</th><th>Completeness</th><th>Missing values</th><th>Duplicates</th><th>Invalid phones</th><th>Address issues</th><th>Country inconsistencies</th><th>Approved changes</th><th>Word operations</th><th>Uploaded by</th><th>Status</th></tr></thead><tbody>
+      <% rows.forEach((row) => { %><tr>
+        <td><b><%= row.original_name %></b></td>
+        <td><%= new Date(row.uploaded_at).toLocaleDateString() %></td>
+        <td><%= Number(row.total_records).toLocaleString() %></td>
+        <td><%= Number(row.complete_records).toLocaleString() %></td>
+        <td><%= Number(row.incomplete_records).toLocaleString() %></td>
+        <td><%= row.overall_completeness === null ? '—' : `${Number(row.overall_completeness).toFixed(1)}%` %></td>
+        <td><%= Number(row.missing_values).toLocaleString() %></td>
+        <td><%= Number(row.duplicate_record_count).toLocaleString() %></td>
+        <td><%= Number(row.invalid_phone_count).toLocaleString() %></td>
+        <td><%= Number(row.address_issue_count).toLocaleString() %></td>
+        <td><%= Number(row.country_inconsistency_count).toLocaleString() %></td>
+        <td><%= Number(row.approved_changes).toLocaleString() %></td>
+        <td><%= Number(row.manipulation_operations).toLocaleString() %></td>
+        <td><%= row.uploaded_by %></td>
+        <td><span class="processing-status status-<%= row.processing_status %>"><%= row.processing_status.replace('_', ' ') %></span></td>
+      </tr><% }) %>
+    </tbody></table></div>
+    <% if (pageCount > 1) { %>
+      <% const selectedQuery = selectedUploadIds.map((id) => `uploadIds=${encodeURIComponent(id)}`).join('&'); %>
+      <nav class="pagination" aria-label="Report pages"><span>Page <%= page %> of <%= pageCount %></span><div>
+        <% if (page > 1) { %><a class="button button-secondary button-small" href="/reports?<%= [fromDate && `from=${encodeURIComponent(fromDate)}`, toDate && `to=${encodeURIComponent(toDate)}`, selectedQuery, `page=${page - 1}`].filter(Boolean).join('&') %>">Previous</a><% } %>
+        <% if (page < pageCount) { %><a class="button button-secondary button-small" href="/reports?<%= [fromDate && `from=${encodeURIComponent(fromDate)}`, toDate && `to=${encodeURIComponent(toDate)}`, selectedQuery, `page=${page + 1}`].filter(Boolean).join('&') %>">Next</a><% } %>
+      </div></nav>
+    <% } %>
+  <% } else { %>
+    <div class="empty-state"><div class="empty-icon"><i data-lucide="chart-no-axes-column-increasing"></i></div><h3>No report data for these filters</h3><p>Try a wider date range, choose different workbooks, or run Data Profiling on an uploaded workbook.</p></div>
+  <% } %>
+</section>
+<%- include('partials/app-end') %>
