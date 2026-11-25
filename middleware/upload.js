@@ -1,6 +1,7 @@
 const crypto = require('node:crypto');
 const path = require('node:path');
 const multer = require('multer');
+const storagePaths = require('../config/storagePaths');
 
 const configuredSize = Number(process.env.UPLOAD_MAX_SIZE_MB || 10);
 const maxSizeMb = Number.isFinite(configuredSize)
@@ -12,7 +13,7 @@ const allowedMimeTypes = new Map([
   ['.xls', 'application/vnd.ms-excel']
 ]);
 const storage = multer.diskStorage({
-  destination: path.join(__dirname, '..', 'uploads'),
+  destination: storagePaths.uploads,
   filename(req, file, callback) {
     callback(null, `${crypto.randomUUID()}${path.extname(file.originalname).toLowerCase()}`);
   }

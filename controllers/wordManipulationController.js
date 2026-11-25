@@ -3,9 +3,10 @@ const uploadModel = require('../models/uploadModel');
 const manipulationModel = require('../models/manipulationModel');
 const wordService = require('../services/wordManipulationService');
 const persistenceService = require('../services/manipulationPersistenceService');
+const storagePaths = require('../config/storagePaths');
 
-const uploadsDirectory = path.resolve(__dirname, '..', 'uploads');
-const workingDirectory = path.resolve(__dirname, '..', 'working-copies');
+const uploadsDirectory = storagePaths.uploads;
+const workingDirectory = storagePaths.workingCopies;
 const MAX_TEXT_LENGTH = 500;
 const MAX_HISTORY_ITEMS = 10;
 const MAX_HISTORY_CELLS = 20;

@@ -4,8 +4,9 @@ const uploadModel = require('../models/uploadModel');
 const { getWorksheetHeaders } = require('../services/excelStreamService');
 const { getCountryOptions } = require('../services/countryService');
 const { enqueueProfilingRun } = require('../services/profilingQueue');
+const storagePaths = require('../config/storagePaths');
 
-const uploadsDirectory = path.resolve(__dirname, '..', 'uploads');
+const uploadsDirectory = storagePaths.uploads;
 const RECORD_PAGE_SIZE = 20;
 const COLUMN_PAGE_SIZE = 25;
 const issueFilters = new Set(['all', 'incomplete', 'phone', 'duplicates', 'address', 'country']);

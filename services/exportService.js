@@ -11,10 +11,11 @@ const {
   validateXlsxArchive,
   validateLegacyWorkbookSize
 } = require('./excelService');
+const storagePaths = require('../config/storagePaths');
 
-const uploadsDirectory = path.resolve(__dirname, '..', 'uploads');
-const workingDirectory = path.resolve(__dirname, '..', 'working-copies');
-const exportsDirectory = path.resolve(__dirname, '..', 'exports');
+const uploadsDirectory = storagePaths.uploads;
+const workingDirectory = storagePaths.workingCopies;
+const exportsDirectory = storagePaths.exports;
 const EXPORT_RETENTION_HOURS = 24;
 const PROFILE_PAGE_SIZE = 500;
 const MAX_SELECTED_COLUMNS = 50000;

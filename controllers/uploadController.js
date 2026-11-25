@@ -3,8 +3,9 @@ const path = require('node:path');
 const { pool } = require('../config/database');
 const uploadModel = require('../models/uploadModel');
 const { getWorkbookSummary, getWorksheetPreview, WorkbookValidationError } = require('../services/excelService');
+const storagePaths = require('../config/storagePaths');
 
-const uploadsDirectory = path.resolve(__dirname, '..', 'uploads');
+const uploadsDirectory = storagePaths.uploads;
 const PAGE_SIZE = 10;
 
 function setNotice(req, message) {

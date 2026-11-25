@@ -1,7 +1,7 @@
 require('dotenv').config();
 const fs = require('node:fs/promises');
-const path = require('node:path');
 const { verifyDatabaseConnection } = require('./config/database');
+const storagePaths = require('./config/storagePaths');
 
 async function initializeApp() {
   const sessionSecret = process.env.SESSION_SECRET;
@@ -9,13 +9,10 @@ async function initializeApp() {
     throw new Error('Set SESSION_SECRET to a random value of at least 32 characters.');
   }
 
-  const uploadsDirectory = path.join(__dirname, 'uploads');
-  const exportsDirectory = path.join(__dirname, 'exports');
-  const workingDirectory = path.join(__dirname, 'working-copies');
   await Promise.all([
-    fs.mkdir(uploadsDirectory, { recursive: true }),
-    fs.mkdir(exportsDirectory, { recursive: true }),
-    fs.mkdir(workingDirectory, { recursive: true })
+    fs.mkdir(storagePaths.uploads, { recursive: true }),
+    fs.mkdir(storagePaths.exports, { recursive: true }),
+    fs.mkdir(storagePaths.workingCopies, { recursive: true })
   ]);
   await verifyDatabaseConnection();
   const profilingModel = require('./models/profilingModel');

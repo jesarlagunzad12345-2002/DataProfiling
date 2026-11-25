@@ -6,9 +6,10 @@ const manipulationModel = require('../models/manipulationModel');
 const profilingModel = require('../models/profilingModel');
 const reviewModel = require('../models/reviewModel');
 const wordService = require('./wordManipulationService');
+const storagePaths = require('../config/storagePaths');
 
-const uploadsDirectory = path.resolve(__dirname, '..', 'uploads');
-const DEFAULT_WORKING_DIRECTORY = path.resolve(__dirname, '..', 'working-copies');
+const uploadsDirectory = storagePaths.uploads;
+const DEFAULT_WORKING_DIRECTORY = storagePaths.workingCopies;
 const MAX_EDIT_LENGTH = 32767;
 const IMPORT_PAGE_SIZE = 200;
 
