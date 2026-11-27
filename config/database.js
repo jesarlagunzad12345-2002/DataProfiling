@@ -8,9 +8,15 @@ function readDatabaseCa() {
   if (!ca) return undefined;
 
   const normalizedCa = ca.replace(/\\n/g, '\n').trim();
-  return normalizedCa.startsWith('-----BEGIN CERTIFICATE-----')
-    ? normalizedCa
-    : fs.readFileSync(path.resolve(ca), 'utf8');
+  if (normalizedCa.startsWith('-----BEGIN CERTIFICATE-----')) return normalizedCa;
+
+  const base64Certificate = normalizedCa.replace(/\s/g, '');
+  if (/^[A-Za-z0-9+/]+={0,2}$/.test(base64Certificate) && base64Certificate.length % 4 === 0) {
+    const lines = base64Certificate.match(/.{1,64}/g);
+    return `-----BEGIN CERTIFICATE-----\n${lines.join('\n')}\n-----END CERTIFICATE-----`;
+  }
+
+  return fs.readFileSync(path.resolve(ca), 'utf8');
 }
 
 const databaseCa = databaseTlsEnabled ? readDatabaseCa() : undefined;

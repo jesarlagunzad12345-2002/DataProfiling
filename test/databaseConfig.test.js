@@ -25,3 +25,30 @@ test('accepts a PEM certificate from the DB_SSL_CA environment variable', async 
     else process.env.DB_SSL_CA = previousCa;
   }
 });
+
+test('wraps a base64 certificate body from DB_SSL_CA as PEM', async () => {
+  const previousSsl = process.env.DB_SSL;
+  const previousCa = process.env.DB_SSL_CA;
+  const base64Certificate = 'TUVUQUJBU0U=';
+
+  process.env.DB_SSL = 'true';
+  process.env.DB_SSL_CA = base64Certificate;
+
+  const databaseModulePath = require.resolve('../config/database');
+  delete require.cache[databaseModulePath];
+  const { pool, closeDatabase } = require('../config/database');
+
+  try {
+    assert.equal(
+      pool.pool.config.connectionConfig.ssl.ca,
+      '-----BEGIN CERTIFICATE-----\nTUVUQUJBU0U=\n-----END CERTIFICATE-----'
+    );
+  } finally {
+    await closeDatabase();
+    delete require.cache[databaseModulePath];
+    if (previousSsl === undefined) delete process.env.DB_SSL;
+    else process.env.DB_SSL = previousSsl;
+    if (previousCa === undefined) delete process.env.DB_SSL_CA;
+    else process.env.DB_SSL_CA = previousCa;
+  }
+});
