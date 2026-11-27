@@ -46,7 +46,12 @@ async function verifyDatabaseConnection() {
     await connection.query('SELECT 1');
     console.log('MySQL connection verified.');
   } catch (error) {
-    console.error('Unable to connect to MySQL:', error.code || error.message);
+    console.error('Unable to connect to MySQL:', error.code || error.message, JSON.stringify({
+      host: process.env.DB_HOST || 'localhost',
+      port: Number(process.env.DB_PORT || 3306),
+      database: process.env.DB_NAME || 'data_profiling_platform',
+      tls: databaseTlsEnabled
+    }));
     throw new Error('Check DB_HOST, DB_PORT, DB_NAME, DB_USER, DB_PASSWORD, and the MySQL server.');
   } finally {
     if (connection) connection.release();

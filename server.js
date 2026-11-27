@@ -158,8 +158,15 @@ async function startServer() {
 }
 
 async function handleRequest(req, res) {
-  const { app } = await getInitializedApp();
-  return app(req, res);
+  try {
+    const { app } = await getInitializedApp();
+    return app(req, res);
+  } catch (error) {
+    console.error('Application initialization failed for serverless request:', error.code || error.message);
+    res.statusCode = 503;
+    res.setHeader('Content-Type', 'text/plain; charset=utf-8');
+    res.end('Service temporarily unavailable. Please try again later.');
+  }
 }
 
 module.exports = handleRequest;
