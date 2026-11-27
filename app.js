@@ -27,7 +27,7 @@ function createApp(options = {}) {
     : Promise.resolve();
 
   app.disable('x-powered-by');
-  if (process.env.TRUST_PROXY === 'true') app.set('trust proxy', 1);
+  if (process.env.TRUST_PROXY === 'true' || process.env.VERCEL) app.set('trust proxy', 1);
   app.set('view engine', 'ejs');
   app.set('views', path.join(__dirname, 'views'));
 
