@@ -20,5 +20,6 @@ function requireProfilingSchema(req, res, next) {
 router.get('/profiling', requireAuthentication, requireProfilingSchema, profilingController.getProfilingPage);
 router.post('/profiling', requireAuthentication, profilingLimiter, requireProfilingSchema, profilingController.postProfiling);
 router.get('/profiling/:runId', requireAuthentication, requireProfilingSchema, profilingController.getProfileResults);
+router.post('/profiling/:runId/duplicates/:groupId/review', requireAuthentication, profilingLimiter, requireProfilingSchema, profilingController.postDuplicateReview);
 
 module.exports = router;

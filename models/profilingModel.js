@@ -10,7 +10,8 @@ const PROFILING_TABLES = [
   'profiling_columns',
   'profiling_records',
   'profiling_duplicate_groups',
-  'profiling_duplicate_members'
+  'profiling_duplicate_members',
+  'profiling_duplicate_audit'
 ];
 
 async function getMissingProfilingTables() {
@@ -85,7 +86,7 @@ async function markRunProcessing(runId) {
 
 async function insertRecords(connection, runId, records) {
   if (!records.length) return;
-  const valuesPerRecord = 13;
+  const valuesPerRecord = 17;
   const placeholders = records.map(() => `(${new Array(valuesPerRecord).fill('?').join(',')})`).join(',');
   const values = records.flatMap((record) => [
     runId,
@@ -98,6 +99,10 @@ async function insertRecords(connection, runId, records) {
     record.suspiciousPhone,
     record.addressIssue,
     record.countryInconsistent,
+    JSON.stringify(record.normalizedValues || {}),
+    record.normalizedCompanyHash,
+    record.normalizedNameHash,
+    record.normalizedAddressHash,
     record.exactDuplicateHash,
     record.phoneDuplicateHash,
     record.emailDuplicateHash
@@ -106,6 +111,7 @@ async function insertRecords(connection, runId, records) {
     `INSERT INTO profiling_records
        (run_id, excel_row_number, original_values, suggestions, issues, missing_count,
         invalid_phone, suspicious_phone, address_issue, country_inconsistent,
+        normalized_values, normalized_company_hash, normalized_name_hash, normalized_address_hash,
         exact_duplicate_hash, phone_duplicate_hash, email_duplicate_hash)
      VALUES ${placeholders}`,
     values
@@ -171,6 +177,114 @@ async function buildDuplicateGroups(connection, runId) {
       [runId, duplicate.type]
     );
   }
+
+  const { compareDuplicateRecords } = require('../services/profilingService');
+  const [runRows] = await connection.execute(
+    'SELECT options_json FROM profiling_runs WHERE id = ?',
+    [runId]
+  );
+  let runOptions = {};
+  try { runOptions = JSON.parse(runRows[0]?.options_json || '{}'); } catch {}
+  const thresholds = {
+    high: Number(runOptions.highConfidenceThreshold),
+    medium: Number(runOptions.mediumConfidenceThreshold),
+    low: Number(runOptions.lowConfidenceThreshold)
+  };
+
+  let offset = 0;
+  const batchSize = 500;
+  const records = [];
+  while (true) {
+    const [batch] = await connection.execute(
+      `SELECT id, excel_row_number, normalized_values, normalized_company_hash,
+              normalized_name_hash, normalized_address_hash, phone_duplicate_hash,
+              email_duplicate_hash, exact_duplicate_hash
+       FROM profiling_records WHERE run_id = ? ORDER BY id LIMIT ? OFFSET ?`,
+      [runId, batchSize, offset]
+    );
+    if (!batch.length) break;
+    records.push(...batch);
+    offset += batch.length;
+  }
+
+  const buckets = new Map();
+  const addBucket = (key, recordId) => {
+    if (!key) return;
+    const bucket = buckets.get(key) || new Set();
+    bucket.add(recordId);
+    buckets.set(key, bucket);
+  };
+  for (const record of records) {
+    addBucket(`company:${record.normalized_company_hash}`, record.id);
+    addBucket(`name:${record.normalized_name_hash}`, record.id);
+    addBucket(`address:${record.normalized_address_hash}`, record.id);
+    addBucket(`phone:${record.phone_duplicate_hash}`, record.id);
+    addBucket(`email:${record.email_duplicate_hash}`, record.id);
+  }
+
+  const recordById = new Map(records.map((record) => [record.id, record]));
+
+  const candidates = new Set();
+  for (const record of records) {
+    const keys = [
+      `company:${record.normalized_company_hash}`, `name:${record.normalized_name_hash}`,
+      `address:${record.normalized_address_hash}`, `phone:${record.phone_duplicate_hash}`,
+      `email:${record.email_duplicate_hash}`
+    ].filter((key) => !key.endsWith(':null') && !key.endsWith(':'));
+    for (const key of keys) {
+      for (const candidateId of buckets.get(key) || []) {
+        if (candidateId !== record.id) candidates.add([record.id, candidateId].sort((a, b) => a - b).join(':'));
+      }
+    }
+  }
+
+  for (const pairKey of candidates) {
+    const [leftId, rightId] = pairKey.split(':').map(Number);
+    const left = recordById.get(leftId);
+    const right = recordById.get(rightId);
+    if (!left || !right) continue;
+    let leftNormalized = {};
+    let rightNormalized = {};
+    try { leftNormalized = typeof left.normalized_values === 'string' ? JSON.parse(left.normalized_values) : (left.normalized_values || {}); } catch {}
+    try { rightNormalized = typeof right.normalized_values === 'string' ? JSON.parse(right.normalized_values) : (right.normalized_values || {}); } catch {}
+    const comparison = compareDuplicateRecords(
+      { normalizedValues: leftNormalized },
+      { normalizedValues: rightNormalized },
+      thresholds
+    );
+    if (!comparison) continue;
+
+    let duplicateType = 'near';
+    if (comparison.label === 'Exact Match') duplicateType = 'exact';
+    else if (comparison.matchingFields.includes('company')) duplicateType = 'company';
+    else if (comparison.matchingFields.includes('name')) duplicateType = 'contact';
+    else if (comparison.matchingFields.includes('address')) duplicateType = 'address';
+    else if (comparison.matchingFields.includes('email')) duplicateType = 'email';
+    else if (comparison.matchingFields.includes('phone')) duplicateType = 'phone';
+
+    const fingerprint = pairKey;
+    const [insertResult] = await connection.execute(
+      `INSERT IGNORE INTO profiling_duplicate_groups
+         (run_id, duplicate_type, fingerprint, member_count, confidence_score, confidence_label,
+          matching_fields, different_fields, reasons, status)
+       VALUES (?, ?, ?, 2, ?, ?, ?, ?, ?, 'pending')`,
+      [
+        runId,
+        duplicateType,
+        fingerprint,
+        comparison.confidence,
+        comparison.label,
+        JSON.stringify(comparison.matchingFields),
+        JSON.stringify(comparison.differentFields),
+        JSON.stringify(comparison.reasons)
+      ]
+    );
+    if (!insertResult.insertId) continue;
+    await connection.execute(
+      'INSERT IGNORE INTO profiling_duplicate_members (group_id, record_id) VALUES (?, ?), (?, ?)',
+      [insertResult.insertId, leftId, insertResult.insertId, rightId]
+    );
+  }
 }
 
 async function completeRun({ runId, columns, totalRecords }) {
@@ -186,11 +300,14 @@ async function completeRun({ runId, columns, totalRecords }) {
               COALESCE(SUM(missing_count), 0) AS missing_values,
               COALESCE(SUM(invalid_phone), 0) AS invalid_phone_count,
               COALESCE(SUM(suspicious_phone), 0) AS suspicious_phone_count,
-              COALESCE(SUM(duplicate_exact OR duplicate_phone OR duplicate_email), 0) AS duplicate_record_count,
+              (SELECT COUNT(DISTINCT m.record_id)
+                 FROM profiling_duplicate_members m
+                 JOIN profiling_duplicate_groups g ON g.id = m.group_id
+                WHERE g.run_id = ?) AS duplicate_record_count,
               COALESCE(SUM(address_issue), 0) AS address_issue_count,
               COALESCE(SUM(country_inconsistent), 0) AS country_inconsistency_count
        FROM profiling_records WHERE run_id = ?`,
-      [runId]
+      [runId, runId]
     );
     const stats = rows[0];
     const totalCells = Number(stats.total_records) * columns.length;
@@ -276,10 +393,21 @@ async function listColumnSummaries(runId, { page = 1, pageSize = 25 } = {}) {
 const issueConditions = {
   incomplete: 'missing_count > 0',
   phone: '(invalid_phone = TRUE OR suspicious_phone = TRUE)',
-  duplicates: '(duplicate_exact = TRUE OR duplicate_phone = TRUE OR duplicate_email = TRUE)',
+  duplicates: `(duplicate_exact = TRUE OR duplicate_phone = TRUE OR duplicate_email = TRUE
+    OR EXISTS (
+      SELECT 1 FROM profiling_duplicate_members dm
+      JOIN profiling_duplicate_groups dg ON dg.id = dm.group_id
+      WHERE dm.record_id = profiling_records.id AND dg.run_id = profiling_records.run_id
+    ))`,
   address: 'address_issue = TRUE',
   country: 'country_inconsistent = TRUE'
 };
+
+function safeJsonValue(value, fallback) {
+  if (Array.isArray(value) || typeof value === 'object') return value || fallback;
+  if (typeof value !== 'string') return fallback;
+  try { return JSON.parse(value); } catch { return fallback; }
+}
 
 async function listRecordsPage(runId, { page = 1, pageSize = 25, issue = 'all' } = {}) {
   const condition = issueConditions[issue];
@@ -303,7 +431,9 @@ async function getDuplicateDetails(recordIds) {
   if (!recordIds.length) return {};
   const placeholders = recordIds.map(() => '?').join(',');
   const [memberships] = await pool.execute(
-    `SELECT m.record_id, g.id AS group_id, g.duplicate_type, g.member_count
+    `SELECT m.record_id, g.id AS group_id, g.duplicate_type, g.member_count,
+            g.confidence_score, g.confidence_label, g.matching_fields,
+            g.different_fields, g.reasons, g.status, g.preferred_record_id
      FROM profiling_duplicate_members m
      JOIN profiling_duplicate_groups g ON g.id = m.group_id
      WHERE m.record_id IN (${placeholders})`,
@@ -313,8 +443,8 @@ async function getDuplicateDetails(recordIds) {
   const groupIds = [...new Set(memberships.map((item) => item.group_id))];
   const groupPlaceholders = groupIds.map(() => '?').join(',');
   const [rowNumbers] = await pool.execute(
-    `SELECT group_id, excel_row_number FROM (
-       SELECT m.group_id, r.excel_row_number,
+    `SELECT group_id, record_id, excel_row_number, original_values FROM (
+       SELECT m.group_id, r.id AS record_id, r.excel_row_number, r.original_values,
               ROW_NUMBER() OVER (PARTITION BY m.group_id ORDER BY r.excel_row_number) AS position
        FROM profiling_duplicate_members m
        JOIN profiling_records r ON r.id = m.record_id
@@ -327,16 +457,28 @@ async function getDuplicateDetails(recordIds) {
   const rowsByGroup = new Map();
   for (const row of rowNumbers) {
     const groupRows = rowsByGroup.get(row.group_id) || [];
-    groupRows.push(row.excel_row_number);
+    groupRows.push({
+      recordId: row.record_id,
+      excelRowNumber: row.excel_row_number,
+      originalValues: safeJsonValue(row.original_values, [])
+    });
     rowsByGroup.set(row.group_id, groupRows);
   }
   const details = {};
   for (const membership of memberships) {
     const groups = details[membership.record_id] || [];
     groups.push({
+      id: membership.group_id,
       type: membership.duplicate_type,
       memberCount: membership.member_count,
-      rowNumbers: rowsByGroup.get(membership.group_id) || []
+      rowNumbers: rowsByGroup.get(membership.group_id) || [],
+      confidence: Number(membership.confidence_score || 0),
+      confidenceLabel: membership.confidence_label || 'Low Confidence',
+      matchingFields: safeJsonValue(membership.matching_fields, []),
+      differentFields: safeJsonValue(membership.different_fields, []),
+      reasons: safeJsonValue(membership.reasons, []),
+      status: membership.status || 'pending',
+      preferredRecordId: membership.preferred_record_id
     });
     details[membership.record_id] = groups;
   }
@@ -350,6 +492,48 @@ async function markInterruptedRuns() {
          finished_at = CURRENT_TIMESTAMP
      WHERE status IN ('queued', 'processing')`
   );
+}
+
+async function reviewDuplicateGroup({ userId, runId, groupId, action, preferredRecordId = null }) {
+  const allowed = new Set(['confirmed', 'not_duplicate', 'keep_both', 'preferred_master']);
+  if (!allowed.has(action)) throw new Error('Choose a valid duplicate review action.');
+  const connection = await pool.getConnection();
+  try {
+    await connection.beginTransaction();
+    const [groups] = await connection.execute(
+      'SELECT id, preferred_record_id FROM profiling_duplicate_groups WHERE id = ? AND run_id = ? LIMIT 1',
+      [groupId, runId]
+    );
+    if (!groups.length) throw Object.assign(new Error('The duplicate group is not available.'), { status: 404 });
+
+    if (preferredRecordId !== null) {
+      const [members] = await connection.execute(
+        'SELECT record_id FROM profiling_duplicate_members WHERE group_id = ? AND record_id = ? LIMIT 1',
+        [groupId, preferredRecordId]
+      );
+      if (!members.length) throw Object.assign(new Error('Choose one of the records in this duplicate group.'), { status: 400 });
+    }
+
+    const status = action === 'preferred_master' ? 'confirmed' : action;
+    await connection.execute(
+      `UPDATE profiling_duplicate_groups
+       SET status = ?, preferred_record_id = ?, reviewed_by = ?, reviewed_at = CURRENT_TIMESTAMP
+       WHERE id = ? AND run_id = ?`,
+      [status, preferredRecordId, userId, groupId, runId]
+    );
+    await connection.execute(
+      `INSERT INTO profiling_duplicate_audit
+         (group_id, user_id, action, preferred_record_id, details_json)
+       VALUES (?, ?, ?, ?, ?)`,
+      [groupId, userId, action, preferredRecordId, JSON.stringify({ runId })]
+    );
+    await connection.commit();
+  } catch (error) {
+    await connection.rollback();
+    throw error;
+  } finally {
+    connection.release();
+  }
 }
 
 module.exports = {
@@ -367,5 +551,6 @@ module.exports = {
   listColumnSummaries,
   listRecordsPage,
   getDuplicateDetails,
+  reviewDuplicateGroup,
   markInterruptedRuns
 };

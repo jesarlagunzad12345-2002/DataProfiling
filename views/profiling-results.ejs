@@ -65,7 +65,30 @@
             <% if (record.issues.address && record.issues.address.messages) { record.issues.address.messages.forEach((message) => { %><small><%= message %></small><% }); } %>
           </div></td>
           <td><div class="issue-list">
-            <% (duplicateDetails[record.id] || []).forEach((group) => { %><span class="issue-chip issue-info"><%= group.type %> duplicate · <%= Number(group.memberCount) %> rows</span><small>Excel rows: <%= group.rowNumbers.join(', ') %><%= Number(group.memberCount) > group.rowNumbers.length ? ', …' : '' %></small><% }) %>
+            <% (duplicateDetails[record.id] || []).forEach((group) => { %>
+              <span class="issue-chip issue-info"><%= group.confidenceLabel %> · <%= group.confidence %>%</span>
+              <small><%= group.type %> duplicate · Matching: <%= (group.matchingFields || []).join(', ') || 'review required' %></small>
+              <small>Different: <%= (group.differentFields || []).join(', ') || 'none detected' %></small>
+              <% (group.reasons || []).forEach((reason) => { %><small><%= reason %></small><% }) %>
+              <small>Excel rows: <%= group.rowNumbers.map((row) => row.excelRowNumber).join(', ') %><%= Number(group.memberCount) > group.rowNumbers.length ? ', …' : '' %></small>
+              <% group.rowNumbers.forEach((row) => { %><small>Row <%= row.excelRowNumber %>: <%= JSON.stringify(row.originalValues) %></small><% }) %>
+              <% if (group.status === 'pending') { %>
+                <form action="/profiling/<%= run.id %>/duplicates/<%= group.id %>/review" method="post" class="duplicate-review-form">
+                  <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+                  <select name="action" aria-label="Duplicate review action">
+                    <option value="confirmed">Mark confirmed duplicate</option>
+                    <option value="not_duplicate">Mark not duplicate</option>
+                    <option value="keep_both">Keep both records</option>
+                    <option value="preferred_master">Select preferred master</option>
+                  </select>
+                  <select name="preferredRecordId" aria-label="Preferred master record">
+                    <option value="">No master selected</option>
+                    <% group.rowNumbers.forEach((row) => { %><option value="<%= row.recordId %>">Excel row <%= row.excelRowNumber %></option><% }) %>
+                  </select>
+                  <button class="button button-secondary button-small" type="submit">Save review</button>
+                </form>
+              <% } else { %><small>Reviewed: <%= group.status.replace('_', ' ') %><%= group.preferredRecordId ? ' · master selected' : '' %></small><% } %>
+            <% }) %>
             <% if (!(duplicateDetails[record.id] || []).length) { %><span class="muted">No duplicate match</span><% } %>
           </div></td>
           <td><div class="suggestion-list">

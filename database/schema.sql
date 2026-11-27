@@ -104,6 +104,10 @@ CREATE TABLE IF NOT EXISTS profiling_records (
   duplicate_exact BOOLEAN NOT NULL DEFAULT FALSE,
   duplicate_phone BOOLEAN NOT NULL DEFAULT FALSE,
   duplicate_email BOOLEAN NOT NULL DEFAULT FALSE,
+  normalized_values JSON NULL,
+  normalized_company_hash CHAR(64) NULL,
+  normalized_name_hash CHAR(64) NULL,
+  normalized_address_hash CHAR(64) NULL,
   exact_duplicate_hash CHAR(64) NULL,
   phone_duplicate_hash CHAR(64) NULL,
   email_duplicate_hash CHAR(64) NULL,
@@ -112,18 +116,31 @@ CREATE TABLE IF NOT EXISTS profiling_records (
   KEY idx_profile_records_exact (run_id, exact_duplicate_hash),
   KEY idx_profile_records_phone (run_id, phone_duplicate_hash),
   KEY idx_profile_records_email (run_id, email_duplicate_hash),
+  KEY idx_profile_records_company (run_id, normalized_company_hash),
+  KEY idx_profile_records_name (run_id, normalized_name_hash),
+  KEY idx_profile_records_address (run_id, normalized_address_hash),
   CONSTRAINT fk_profiling_records_run FOREIGN KEY (run_id) REFERENCES profiling_runs (id) ON DELETE CASCADE
 ) ENGINE=InnoDB;
 
 CREATE TABLE IF NOT EXISTS profiling_duplicate_groups (
   id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
   run_id BIGINT UNSIGNED NOT NULL,
-  duplicate_type ENUM('exact', 'phone', 'email') NOT NULL,
-  fingerprint CHAR(64) NOT NULL,
+  duplicate_type ENUM('exact', 'phone', 'email', 'near', 'company', 'contact', 'address', 'spelling', 'combined') NOT NULL,
+  fingerprint VARCHAR(128) NOT NULL,
   member_count BIGINT UNSIGNED NOT NULL,
+  confidence_score DECIMAL(5,2) NOT NULL DEFAULT 0.00,
+  confidence_label ENUM('Exact Match', 'High Confidence', 'Medium Confidence', 'Low Confidence') NOT NULL DEFAULT 'Low Confidence',
+  matching_fields JSON NULL,
+  different_fields JSON NULL,
+  reasons JSON NULL,
+  status ENUM('pending', 'confirmed', 'not_duplicate', 'keep_both') NOT NULL DEFAULT 'pending',
+  preferred_record_id BIGINT UNSIGNED NULL,
+  reviewed_by BIGINT UNSIGNED NULL,
+  reviewed_at TIMESTAMP NULL,
   PRIMARY KEY (id),
   UNIQUE KEY uq_profile_duplicate_group (run_id, duplicate_type, fingerprint),
   KEY idx_profile_duplicate_groups_run_type (run_id, duplicate_type),
+  KEY idx_profile_duplicate_groups_status (run_id, status),
   CONSTRAINT fk_profile_duplicate_groups_run FOREIGN KEY (run_id) REFERENCES profiling_runs (id) ON DELETE CASCADE
 ) ENGINE=InnoDB;
 
@@ -136,6 +153,20 @@ CREATE TABLE IF NOT EXISTS profiling_duplicate_members (
     FOREIGN KEY (group_id) REFERENCES profiling_duplicate_groups (id) ON DELETE CASCADE,
   CONSTRAINT fk_profile_duplicate_members_record
     FOREIGN KEY (record_id) REFERENCES profiling_records (id) ON DELETE CASCADE
+) ENGINE=InnoDB;
+
+CREATE TABLE IF NOT EXISTS profiling_duplicate_audit (
+  id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  group_id BIGINT UNSIGNED NOT NULL,
+  user_id BIGINT UNSIGNED NOT NULL,
+  action ENUM('confirmed', 'not_duplicate', 'keep_both', 'preferred_master') NOT NULL,
+  preferred_record_id BIGINT UNSIGNED NULL,
+  details_json JSON NULL,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  KEY idx_duplicate_audit_group_created (group_id, created_at),
+  KEY idx_duplicate_audit_user_created (user_id, created_at),
+  KEY idx_duplicate_audit_preferred (preferred_record_id)
 ) ENGINE=InnoDB;
 
 CREATE TABLE IF NOT EXISTS manipulation_jobs (

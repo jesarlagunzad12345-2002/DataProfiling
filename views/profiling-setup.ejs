@@ -56,6 +56,16 @@
             <% headers.forEach((header, index) => { %><option value="<%= index %>" <%= suggestedColumns.country === String(index) ? 'selected' : '' %>><%= columnNames[index] %></option><% }) %>
           </select>
         </label>
+        <label class="form-field"><span>Company name column</span>
+          <select name="companyColumn"><option value="">Not configured</option>
+            <% headers.forEach((header, index) => { %><option value="<%= index %>" <%= suggestedColumns.company === String(index) ? 'selected' : '' %>><%= columnNames[index] %></option><% }) %>
+          </select>
+        </label>
+        <label class="form-field"><span>Contact name column</span>
+          <select name="nameColumn"><option value="">Not configured</option>
+            <% headers.forEach((header, index) => { %><option value="<%= index %>" <%= suggestedColumns.name === String(index) ? 'selected' : '' %>><%= columnNames[index] %></option><% }) %>
+          </select>
+        </label>
         <label class="form-field"><span>Default country for phone parsing</span>
           <select name="defaultCountry"><option value="">International numbers only</option>
             <% countryOptions.forEach((country) => { %><option value="<%= country.alpha2 %>"><%= country.name %> (+<%= country.callingCode %>)</option><% }) %>
@@ -74,6 +84,11 @@
         <div class="option-row">
           <label class="check-option"><input type="checkbox" name="ignoreCase" checked><span>Ignore letter case</span></label>
           <label class="check-option"><input type="checkbox" name="trimWhitespace" checked><span>Trim surrounding whitespace</span></label>
+        </div>
+        <div class="profiling-form-grid" style="margin-top:14px">
+          <label class="form-field"><span>High confidence threshold</span><input type="number" name="highConfidenceThreshold" min="1" max="100" value="80"></label>
+          <label class="form-field"><span>Medium confidence threshold</span><input type="number" name="mediumConfidenceThreshold" min="1" max="99" value="60"></label>
+          <label class="form-field"><span>Low confidence threshold</span><input type="number" name="lowConfidenceThreshold" min="0" max="98" value="40"></label>
         </div>
       </div>
       <div class="upload-submit profiling-submit"><span class="small-note"><i data-lucide="lock-keyhole"></i> Values remain associated with your account. Suggested changes are separate from source data.</span><button type="submit" class="button button-primary"><i data-lucide="scan-search"></i> Start profiling</button></div>

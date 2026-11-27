@@ -5,7 +5,7 @@ const path = require('node:path');
 const test = require('node:test');
 const ExcelJS = require('exceljs');
 const legacyXlsx = require('@e965/xlsx');
-const { profileRecord, isMissingValue } = require('../services/profilingService');
+const { profileRecord, isMissingValue, compareDuplicateRecords } = require('../services/profilingService');
 const { validatePhone } = require('../services/phoneService');
 const { standardizeCountry, getCountryOptions } = require('../services/countryService');
 const { parseAddress } = require('../services/addressParser');
@@ -62,6 +62,39 @@ test('normalizes valid international phones and detects email and configured exa
   assert.notEqual(first.emailDuplicateHash, 'ada@example.com');
   assert.equal(validatePhone('not a phone').status, 'invalid');
   assert.equal(validatePhone('+12005550100').status, 'suspicious');
+});
+
+test('scores near duplicates without overwriting originals and rejects weak false positives', () => {
+  const left = {
+    normalizedValues: {
+      email: 'ada@example.com',
+      phone: '12133734253',
+      company: 'acme',
+      name: 'ada lovelace',
+      address: '1600 pennsylvania ave washington dc'
+    }
+  };
+  const right = {
+    normalizedValues: {
+      email: 'ada@example.com',
+      phone: '12133734253',
+      company: 'acme inc',
+      name: 'Ada Lovelace',
+      address: '1600 Pennsylvania Ave, Washington, DC'
+    }
+  };
+  const result = compareDuplicateRecords(left, right, { high: 80, medium: 60, low: 40 });
+  assert.ok(result);
+  assert.ok(result.confidence >= 60);
+  assert.ok(['Exact Match', 'High Confidence', 'Medium Confidence'].includes(result.label));
+  assert.ok(result.matchingFields.includes('name'));
+
+  const unrelated = compareDuplicateRecords(
+    { normalizedValues: { company: 'globex', name: 'john smith', address: '1 main st' } },
+    { normalizedValues: { company: 'initech', name: 'jane doe', address: '999 other rd' } },
+    { high: 80, medium: 60, low: 40 }
+  );
+  assert.equal(unrelated, null);
 });
 
 test('standardizes country aliases and proposes conservative address components', () => {

@@ -3,12 +3,21 @@ const fs = require('node:fs');
 const path = require('node:path');
 
 const databaseTlsEnabled = process.env.DB_SSL === 'true';
+function readDatabaseCa() {
+  const ca = process.env.DB_SSL_CA;
+  if (!ca) return undefined;
+
+  const normalizedCa = ca.replace(/\\n/g, '\n').trim();
+  return normalizedCa.startsWith('-----BEGIN CERTIFICATE-----')
+    ? normalizedCa
+    : fs.readFileSync(path.resolve(ca), 'utf8');
+}
+
+const databaseCa = databaseTlsEnabled ? readDatabaseCa() : undefined;
 const databaseTlsOptions = databaseTlsEnabled
   ? {
     rejectUnauthorized: true,
-    ...(process.env.DB_SSL_CA
-      ? { ca: fs.readFileSync(path.resolve(process.env.DB_SSL_CA), 'utf8') }
-      : {})
+    ...(databaseCa ? { ca: databaseCa } : {})
   }
   : undefined;
 

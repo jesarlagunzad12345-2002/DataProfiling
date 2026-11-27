@@ -171,7 +171,7 @@ The profiling queue remains process-local and serial; it is bounded to prevent u
 
 1. Set `NODE_ENV=production`, use HTTPS at the reverse proxy, and set `TRUST_PROXY=true` only when the app is behind a trusted single proxy.
 2. Set a unique random `SESSION_SECRET`; store all environment values in the deployment secret manager, not in source control.
-3. Use a dedicated MySQL account with only required database privileges. Set `DB_SSL=true` for a remote database and configure `DB_SSL_CA` when the server certificate uses a private CA.
+3. Use a dedicated MySQL account with only required database privileges. Set `DB_SSL=true` for a remote database and configure `DB_SSL_CA` when the server certificate uses a private CA. `DB_SSL_CA` accepts either a local certificate file path or the PEM certificate text, which can be stored as a Vercel environment variable.
 4. Persist `uploads/`, `working-copies/`, and `exports/` on private storage with restrictive filesystem permissions; never expose those directories through the web server.
 5. Apply `database/schema.sql` with a database administrator and configure backups and log retention before accepting production data.
 6. Run `npm ci`, `npm test`, `npm run build`, and `npm audit` during deployment validation.
@@ -179,6 +179,8 @@ The profiling queue remains process-local and serial; it is bounded to prevent u
 ### Vercel deployment
 
 Vercel routes requests through the Node.js function configured in [`vercel.json`](./vercel.json). Add the app's settings under **Project → Settings → Environment Variables**; Vercel does not read the ignored local `.env` file. At minimum configure `SESSION_SECRET`, `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USER`, and `DB_PASSWORD`, plus `NODE_ENV=production`. Use a database hostname reachable from Vercel, not `localhost`, and enable `DB_SSL=true` when required by the database provider. Select the appropriate deployment environments and redeploy after changing variables.
+
+For an Aiven MySQL service, use the values from its **Connection information** page. Set `DB_HOST` to the service host, `DB_PORT` to its port, `DB_NAME` to the schema containing this app's tables (for example `data_profiling_platform`), `DB_USER` to the service user, `DB_PASSWORD` to its password, and `DB_SSL=true`. If certificate verification fails, download Aiven's CA certificate and set `DB_SSL_CA` to the full PEM contents in Vercel (not a path on your computer). Do not use the example/local `localhost` settings for a Vercel deployment. Confirm that the Vercel deployment environment has all these variables, then redeploy.
 
 If MySQL is unreachable, Vercel still serves the login page with a database-outage notice, but sign-in and data features remain unavailable until the database connection works. An `ECONNREFUSED` error means the configured host/port is refusing connections; verify that `DB_HOST` is the live database provider's endpoint, `DB_PORT` is correct, and remote access is enabled.
 

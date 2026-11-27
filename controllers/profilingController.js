@@ -31,6 +31,12 @@ function detectColumn(headers, expression) {
   return index < 0 ? '' : String(index);
 }
 
+function parseConfidenceThreshold(value, fallback) {
+  if (value === undefined || value === null || value === '') return fallback;
+  const number = Number(value);
+  return Number.isInteger(number) && number >= 0 && number <= 100 ? number : null;
+}
+
 function parseColumnIndex(value, columnCount) {
   if (value === undefined || value === null || value === '') return null;
   if (typeof value !== 'string' || !/^\d+$/.test(value)) return undefined;
@@ -108,7 +114,9 @@ async function renderSetup(req, res, { sourceValue = '', errorMessage = null } =
         phone: detectColumn(setup.headers, /phone|mobile|telephone|tel/i),
         email: detectColumn(setup.headers, /e[\s_-]?mail/i),
         address: detectColumn(setup.headers, /address|street|location/i),
-        country: detectColumn(setup.headers, /country|nation/i)
+        country: detectColumn(setup.headers, /country|nation/i),
+        company: detectColumn(setup.headers, /company|organisation|organization|business|firm/i),
+        name: detectColumn(setup.headers, /^(?:contact|customer|person|full|first|last)?[\s_-]*(?:name)$/i)
       }
       : {},
     countryOptions,
@@ -137,7 +145,9 @@ async function postProfiling(req, res, next) {
     const emailColumn = parseColumnIndex(req.body.emailColumn, columnCount);
     const addressColumn = parseColumnIndex(req.body.addressColumn, columnCount);
     const countryColumn = parseColumnIndex(req.body.countryColumn, columnCount);
-    if ([phoneColumn, emailColumn, addressColumn, countryColumn].includes(undefined)) {
+    const companyColumn = parseColumnIndex(req.body.companyColumn, columnCount);
+    const nameColumn = parseColumnIndex(req.body.nameColumn, columnCount);
+    if ([phoneColumn, emailColumn, addressColumn, countryColumn, companyColumn, nameColumn].includes(undefined)) {
       return renderSetup(req, res, { sourceValue, errorMessage: 'Choose valid column mappings.' });
     }
 
@@ -159,16 +169,28 @@ async function postProfiling(req, res, next) {
     }
 
     const hasHeaderRow = req.body.hasHeaderRow === 'on';
+    const highConfidenceThreshold = parseConfidenceThreshold(req.body.highConfidenceThreshold, 80);
+    const mediumConfidenceThreshold = parseConfidenceThreshold(req.body.mediumConfidenceThreshold, 60);
+    const lowConfidenceThreshold = parseConfidenceThreshold(req.body.lowConfidenceThreshold, 40);
+    if (highConfidenceThreshold === null || mediumConfidenceThreshold === null || lowConfidenceThreshold === null
+      || lowConfidenceThreshold >= mediumConfidenceThreshold || mediumConfidenceThreshold >= highConfidenceThreshold) {
+      return renderSetup(req, res, { sourceValue, errorMessage: 'Confidence thresholds must be between 0 and 100 and ordered low < medium < high.' });
+    }
     const options = {
       hasHeaderRow,
       phoneColumn,
       emailColumn,
       addressColumn,
       countryColumn,
+      companyColumn,
+      nameColumn,
       defaultCountry: defaultCountry || null,
       duplicateColumns,
       ignoreCase: req.body.ignoreCase === 'on',
       trimWhitespace: req.body.trimWhitespace === 'on',
+      highConfidenceThreshold,
+      mediumConfidenceThreshold,
+      lowConfidenceThreshold,
       columnNames: setup.headers.map((header, index) => makeColumnName(header, index, hasHeaderRow))
     };
     const runId = await profilingModel.createRun({
@@ -285,4 +307,33 @@ async function getProfileResults(req, res) {
   });
 }
 
-module.exports = { getProfilingPage, postProfiling, getProfileResults };
+async function postDuplicateReview(req, res, next) {
+  const runId = Number(req.params.runId);
+  const groupId = Number(req.params.groupId);
+  if (!Number.isSafeInteger(runId) || runId < 1 || !Number.isSafeInteger(groupId) || groupId < 1) {
+    return res.status(404).render('error', { title: 'Duplicate group not found', message: 'This duplicate group is not available.', statusCode: 404 });
+  }
+  try {
+    const run = await profilingModel.getRunForUser(req.session.user.id, runId);
+    if (!run) return res.status(404).render('error', { title: 'Profiling run not found', message: 'This profiling run is not available.', statusCode: 404 });
+    const action = typeof req.body.action === 'string' ? req.body.action : '';
+    const preferredValue = req.body.preferredRecordId;
+    const preferredRecordId = preferredValue === undefined || preferredValue === '' ? null : Number(preferredValue);
+    if (preferredRecordId !== null && (!Number.isSafeInteger(preferredRecordId) || preferredRecordId < 1)) {
+      return res.status(400).render('error', { title: 'Invalid master record', message: 'Choose a valid record in this duplicate group.', statusCode: 400 });
+    }
+    await profilingModel.reviewDuplicateGroup({
+      userId: req.session.user.id,
+      runId,
+      groupId,
+      action,
+      preferredRecordId
+    });
+    req.session.notice = 'Duplicate review saved. No records were deleted or merged.';
+    res.redirect(`/profiling/${runId}?issue=duplicates`);
+  } catch (error) {
+    next(error);
+  }
+}
+
+module.exports = { getProfilingPage, postProfiling, getProfileResults, postDuplicateReview };
