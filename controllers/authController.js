@@ -1,5 +1,4 @@
 const bcrypt = require('bcryptjs');
-const { generateCsrfToken } = require('../middleware/csrf');
 const userModel = require('../models/userModel');
 
 const DEFAULT_SESSION_MS = 8 * 60 * 60 * 1000;
@@ -41,7 +40,6 @@ async function postLogin(req, res, next) {
       req.session.regenerate((error) => error ? reject(error) : resolve());
     });
     req.session.user = { id: user.id, username: user.username, email: user.email };
-    req.session.csrfToken = generateCsrfToken();
     if (req.body.remember === 'on') {
       req.session.cookie.maxAge = REMEMBER_ME_MS;
     } else {
