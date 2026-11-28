@@ -27,7 +27,7 @@ function createApp(options = {}) {
     : Promise.resolve();
 
   app.disable('x-powered-by');
-  if (process.env.TRUST_PROXY === 'true') app.set('trust proxy', 1);
+  if (process.env.TRUST_PROXY === 'true' || process.env.VERCEL) app.set('trust proxy', 1);
   app.set('view engine', 'ejs');
   app.set('views', path.join(__dirname, 'views'));
 
@@ -118,6 +118,9 @@ function createApp(options = {}) {
     res.locals.currentUser = req.session && req.session.user ? req.session.user : null;
     res.locals.csrfToken = req.session && req.session.csrfToken ? req.session.csrfToken : '';
     if (error.code === 'EBADCSRFTOKEN') {
+      if (req.method === 'POST' && req.path === '/login' && req.session && req.session.user) {
+        return res.redirect('/dashboard');
+      }
       return res.status(403).render('error', {
         title: 'Session expired',
         message: 'Your form session expired. Please reload the page and try again.',
